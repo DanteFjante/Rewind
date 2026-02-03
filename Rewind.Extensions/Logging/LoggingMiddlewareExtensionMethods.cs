@@ -1,8 +1,4 @@
-﻿using Rewind.Redux.Middleware;
-using Rewind.Redux.Store.Interface;
-using Rewind.Redux.Store.Internal;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.DependencyInjection.Extensions;
+﻿using Rewind.Store.Interface;
 
 namespace Rewind.Logging
 {

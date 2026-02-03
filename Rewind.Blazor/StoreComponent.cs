@@ -1,8 +1,8 @@
 ﻿using Microsoft.AspNetCore.Components;
-using Rewind.Redux.Store;
+using Rewind.Store.Interface;
 using System.Reflection;
 
-namespace Rewind.Blazor
+namespace Rewind
 {
     public class StoreComponent : ComponentBase
     {

@@ -1,8 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
-
-namespace Rewind.Redux.Middleware
+﻿namespace Rewind.Middleware
 {
     public class InitializeMiddlewareContext<TState>
     {

@@ -1,6 +1,4 @@
-﻿using System.Runtime.CompilerServices;
-
-namespace Rewind.Redux.Store;
+﻿namespace Rewind.Store;
 public interface IInitializableStore
 {
     public ValueTask InitializeAsync(CancellationToken ct = default);

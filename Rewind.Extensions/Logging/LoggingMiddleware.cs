@@ -1,5 +1,5 @@
-﻿using Rewind.Redux.Middleware;
-using Microsoft.Extensions.Logging;
+﻿using Microsoft.Extensions.Logging;
+using Rewind.Middleware;
 
 namespace Rewind.Logging
 {

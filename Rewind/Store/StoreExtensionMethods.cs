@@ -1,10 +1,8 @@
-﻿using Rewind.LocalStorage;
-using Rewind.Redux.Store.Interface;
-using Rewind.Redux.Store.Internal;
-using Microsoft.Extensions.DependencyInjection;
+﻿using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Rewind.Store.Internal;
 
-namespace Rewind.Redux.Store
+namespace Rewind.Store
 {
     public static class StoreExtensionMethods
     {

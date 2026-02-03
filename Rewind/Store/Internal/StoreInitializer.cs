@@ -1,6 +1,6 @@
-﻿namespace Rewind.Redux.Store.Internal
+﻿namespace Rewind.Store.Internal
 {
-    public class StoreInitializer : IStoreInitializer
+    internal class StoreInitializer : IStoreInitializer
     {
         private readonly IEnumerable<IInitializableStore> stores;
         public StoreInitializer(IEnumerable<IInitializableStore> stores)
