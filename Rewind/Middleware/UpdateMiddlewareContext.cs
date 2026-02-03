@@ -1,4 +1,4 @@
-﻿namespace Rewind.Redux.Middleware
+﻿namespace Rewind.Middleware
 {
     public class UpdateMiddlewareContext<TState>
     {

@@ -1,6 +1,6 @@
-﻿using Rewind.Redux;
-using Rewind.Redux.Middleware;
-using Microsoft.Extensions.Options;
+﻿using Microsoft.Extensions.Options;
+using Rewind.Common;
+using Rewind.Middleware;
 
 namespace Rewind.LocalStorage
 {

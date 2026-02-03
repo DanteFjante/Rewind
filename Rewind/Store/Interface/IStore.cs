@@ -1,4 +1,4 @@
-﻿namespace Rewind.Redux.Store;
+﻿namespace Rewind.Store;
 
 public interface IStore<TState>
 {

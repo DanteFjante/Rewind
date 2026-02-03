@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Text;
 
-namespace Rewind.Redux
+namespace Rewind.Common
 {
     public static class HelperMethods
     {

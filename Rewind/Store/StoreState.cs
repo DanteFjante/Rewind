@@ -1,4 +1,4 @@
-﻿namespace Rewind.Redux.Store
+﻿namespace Rewind.Store
 {
     public record StoreState<TState>(
         TState State,
