@@ -59,7 +59,7 @@ internal class Store<TState> : IStore<TState>, IInitializableStore<TState>, IDis
 
         lock (_gate)
         {
-            ThrowIfDisposed();
+            ThrowIfNotReady();
             oldValue = _current.State;
         }
         
@@ -98,16 +98,38 @@ internal class Store<TState> : IStore<TState>, IInitializableStore<TState>, IDis
 
     }
 
+    public IDisposable Subscribe(Action listener, bool fireImmediately = true)
+    {
+        Subscription subscription;
+        lock(_gate)
+        {
+            ThrowIfNotReady();
+            subscription = new Subscription(this);
+            _subscribers.Add(subscription.Id, _ => listener());
+        }
+
+        if (fireImmediately)
+        {
+            try
+            {
+                listener.Invoke();
+            }
+            catch { }
+        }
+
+        return subscription;
+    }
+
     public IDisposable Subscribe(Action<TState> listener, bool fireImmediately = true)
     {
         Subscription subscription;
         TState state;
         lock (_gate)
         {
-            ThrowIfDisposed();
+            ThrowIfNotReady();
             subscription = new Subscription(this);
-            _subscribers.Add(subscription.Id, listener);
             state = _current.State;
+            _subscribers.Add(subscription.Id, listener);
         }
 
         if (fireImmediately)
@@ -175,11 +197,13 @@ internal class Store<TState> : IStore<TState>, IInitializableStore<TState>, IDis
         return next;
     }
 
-    private void ThrowIfDisposed()
+    private void ThrowIfNotReady()
     {
         if (_disposed) throw new ObjectDisposedException(nameof(Store<TState>));
         if (!_isInitialized) throw new InvalidOperationException($"Store for {typeof(TState).FullName} is not initialized.");
     }
+
+
 
     private class Subscription : IDisposable
     {

@@ -1,14 +1,15 @@
 ﻿using Rewind.Common;
-using Rewind.Store.Interface;
+using Rewind.Store;
 
 namespace Rewind.LocalStorage
 {
     public static class LocalStorageMiddlewareExtensionMethods
     {
-        public static IStoreBuilder<TState> AddPersistence<TState>(
+        public static IStoreBuilder<TState> AddPersistence<TState, TLocalStorage>(
             this IStoreBuilder<TState> storeBuilder,
             string? storageKey = null,
             Action<LocalStorageSettings>? options = null)
+            where TLocalStorage : class, ILocalStorage
         {
             Action<LocalStorageSettings> opt;
             if (options != null)
@@ -21,7 +22,7 @@ namespace Rewind.LocalStorage
             }
             
             storeBuilder.AddOptions(opt);
-            storeBuilder.AddService<ILocalStorage, LocalWebStorage>();
+            storeBuilder.AddService<ILocalStorage, TLocalStorage>();
             storeBuilder.AddMiddleware<LocalStorageMiddleware<TState>>();
             return storeBuilder;
         }

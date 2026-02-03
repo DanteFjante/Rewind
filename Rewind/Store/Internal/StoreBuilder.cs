@@ -12,7 +12,6 @@ internal class StoreBuilder<TState> : IStoreBuilder<TState>
     readonly Dictionary<Type, MiddlewareRegistration> _middlewareSetup;
     readonly Dictionary<Type, OptionsRegistration> _optionsSetup;
     readonly Dictionary<Type, ServiceRegistration> _serviceSetup;
-    readonly Dictionary<Type, BaseMiddleware<TState>> _getMiddleware;
 
     
     TState _initialState;

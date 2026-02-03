@@ -1,6 +1,10 @@
 ﻿namespace Rewind.Store;
 
-public interface IStore<TState>
+public interface IStore
+{
+    public IDisposable Subscribe(Action listener, bool fireImmediately = true);
+}
+public interface IStore<TState> : IStore
 {
     public StoreState<TState> GetSnapshot();
     public TState State => GetSnapshot().State;

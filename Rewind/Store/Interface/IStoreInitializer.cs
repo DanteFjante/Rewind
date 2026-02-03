@@ -2,5 +2,5 @@
 
 public interface IStoreInitializer
 {
-    public Task InitializeStores(CancellationToken ct = default);
+    public Task InitializeStoresAsync(CancellationToken ct = default);
 }

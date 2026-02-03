@@ -12,7 +12,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Rewind.Extensions\Rewind.Extensions.csproj" />
-    <ProjectReference Include="..\Rewind\Rewind.csproj" />
   </ItemGroup>
 
 </Project>

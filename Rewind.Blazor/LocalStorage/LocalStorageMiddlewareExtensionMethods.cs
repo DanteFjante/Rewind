@@ -1,5 +1,5 @@
 ﻿using Rewind.Common;
-using Rewind.Store.Interface;
+using Rewind.Store;
 
 namespace Rewind.LocalStorage
 {
