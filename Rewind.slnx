@@ -1,0 +1,5 @@
+<Solution>
+  <Project Path="Rewind.Blazor/Rewind.Blazor.csproj" />
+  <Project Path="Rewind.Extensions/Rewind.Extensions.csproj" />
+  <Project Path="Rewind/Rewind.csproj" />
+</Solution>
