@@ -1,5 +1,8 @@
 <Solution>
+  <Project Path="Rewind.Base/Rewind.Base.csproj" Id="a2f58616-ef32-4d9e-beb9-34fb8fbd480d" />
   <Project Path="Rewind.Blazor/Rewind.Blazor.csproj" />
   <Project Path="Rewind.Extensions/Rewind.Extensions.csproj" />
+  <Project Path="Rewind.Server.Base/Rewind.Server.Base.csproj" Id="36074f32-3021-4011-b159-90137d82bbed" />
+  <Project Path="Rewind.Server/Rewind.Server.csproj" Id="309c8844-4ad5-4324-80aa-531d5f541c6a" />
   <Project Path="Rewind/Rewind.csproj" />
 </Solution>

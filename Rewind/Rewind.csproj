@@ -15,4 +15,8 @@
     <PackageReference Include="Microsoft.JSInterop" Version="10.0.2" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\Rewind.Base\Rewind.Base.csproj" />
+  </ItemGroup>
+
 </Project>

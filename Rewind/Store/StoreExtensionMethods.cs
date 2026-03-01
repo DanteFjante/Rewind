@@ -1,27 +1,23 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.DependencyInjection.Extensions;
-using Rewind.Store.Internal;
+using Rewind.Store.Builders;
 
 namespace Rewind.Store
 {
     public static class StoreExtensionMethods
     {
 
-        public static void AddStore<TState>(this IServiceCollection services, TState initialState, Func<IStoreBuilder<TState>, IStoreBuilder<TState>>? factory = null)
+        public static IServiceCollection AddStore<TState>(this IServiceCollection services, TState initialState, Func<IStoreBuilder<TState>, IStoreBuilder<TState>>? factory = null)
         {
-            services.TryAddScoped<IStoreInitializer, StoreInitializer>();
             
             StoreBuilder<TState> storeBuilder = new StoreBuilder<TState>(initialState);
 
-            if(factory != null)
-                factory(storeBuilder);
+            Func<IStoreBuilder<TState>, IStoreBuilder<TState>> internalFactory = (sb) => (factory?.Invoke(sb) ?? sb);
 
-            var storeFactory = storeBuilder.Build(services);
+            storeBuilder = (StoreBuilder<TState>) internalFactory(storeBuilder);
 
-            services.TryAddScoped(sp => storeFactory(sp));
-            services.TryAddScoped<IStore<TState>>(sp => sp.GetRequiredService<Store<TState>>());
-            services.AddScoped<IInitializableStore>(sp => sp.GetRequiredService<Store<TState>>());
-            services.AddScoped<IInitializableStore<TState>>(sp => sp.GetRequiredService<Store<TState>>());
+            storeBuilder.Build(services);
+
+            return services;
         }
     }
 }

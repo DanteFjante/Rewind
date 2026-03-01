@@ -31,7 +31,7 @@ namespace Rewind.Logging
         protected override ValueTask BeforeInitializeStore(InitializeMiddlewareContext<TState> context, InitNextAsync next, CancellationToken ct)
         {
             Info("Initializing Store" + typeof(TState).FullName);
-            return ValueTask.CompletedTask;
+            return next(context, ct);
         }
 
         protected override ValueTask AfterInitializeStore(InitializeMiddlewareContext<TState> context, InitNextAsync next, CancellationToken ct)
@@ -45,13 +45,13 @@ namespace Rewind.Logging
                 Info($"Store Initialized for: <{typeof(TState).FullName}> with state: {context.State}");
             }
 
-            return ValueTask.CompletedTask;
+            return next(context, ct);
         }
 
         protected override ValueTask BeforeUpdate(UpdateMiddlewareContext<TState> context, UpdateNextAsync next, CancellationToken ct)
         {
             Info($"Updating store: <{typeof(TState).FullName}> with state: {context.CurrentState}");
-            return ValueTask.CompletedTask;
+            return next(context, ct);
         }
 
         protected override ValueTask AfterUpdate(UpdateMiddlewareContext<TState> context, UpdateNextAsync next, CancellationToken ct)
@@ -64,7 +64,7 @@ namespace Rewind.Logging
             {
                 Info($"Updated store: <{typeof(TState).FullName}> from state {context.CurrentState} with new state {context.NextState}");
             }
-            return ValueTask.CompletedTask;
+            return next(context, ct);
         }
     }
 }

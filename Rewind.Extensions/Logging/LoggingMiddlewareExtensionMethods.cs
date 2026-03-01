@@ -1,4 +1,4 @@
-﻿using Rewind.Store;
+﻿using Rewind.Store.Builders;
 
 namespace Rewind.Logging
 {
