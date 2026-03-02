@@ -1,7 +1,7 @@
 ﻿using Rewind.Extensions.Persistence;
-using Rewind.Server.Base.Store;
+using Rewind.Server.Store;
 
-namespace Rewind.Server.Base.Persistence
+namespace Rewind.Server.Persistence
 {
     public interface IServerRepository
     {

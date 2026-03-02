@@ -1,7 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
-using Rewind.Server.Base.Store;
+using Rewind.Server.Store;
 
-namespace Rewind.Data
+namespace Rewind.Server.Data
 {
     public class RewindDbContext : DbContext
     {

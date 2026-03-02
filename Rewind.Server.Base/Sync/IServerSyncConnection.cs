@@ -1,6 +1,6 @@
 ﻿using Rewind.Sync.Requests;
 
-namespace Rewind.Sync.Server
+namespace Rewind.Server.Sync
 {
     public interface IServerSyncConnection
     {

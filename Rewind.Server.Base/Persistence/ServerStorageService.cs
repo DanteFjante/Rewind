@@ -1,9 +1,6 @@
 ﻿using Rewind.Extensions.Persistence;
-using Rewind.Extensions.Persistence.Server;
-using Rewind.Server.Base.Persistence;
-using Rewind.Server.Base.Store;
 
-namespace Rewind.Server.Data
+namespace Rewind.Server.Persistence
 {
     public class ServerStorageService : IServerStorageService
     {

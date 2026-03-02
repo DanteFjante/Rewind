@@ -1,6 +1,6 @@
 ﻿using Rewind.Common;
 using Rewind.Extensions.Persistence;
-using Rewind.Extensions.Persistence.Server;
+using Rewind.Server.Persistence;
 using Rewind.Store;
 
 namespace Rewind.Server.Store

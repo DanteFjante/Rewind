@@ -1,7 +1,7 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
 using Rewind.Server.Builders;
 
-namespace Rewind.Blazor.Store
+namespace Rewind.Server
 {
     public static class ServerExtensionsMethods
     {

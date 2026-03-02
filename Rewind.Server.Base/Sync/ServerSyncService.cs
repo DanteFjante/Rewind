@@ -1,8 +1,8 @@
-﻿using Rewind.Store;
+﻿using Rewind.Extensions.Sync;
+using Rewind.Store;
 using Rewind.Sync.Requests;
-using Rewind.Sync.Server;
 
-namespace Rewind.Extensions.Sync.Server
+namespace Rewind.Server.Sync
 {
     public class ServerSyncService : ISyncService
     {

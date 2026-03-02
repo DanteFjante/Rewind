@@ -1,4 +1,4 @@
-﻿namespace Rewind.Server.Base.Cache
+﻿namespace Rewind.Server.Cache
 {
     public class CacheSettings
     {

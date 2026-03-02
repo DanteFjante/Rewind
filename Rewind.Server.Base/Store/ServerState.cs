@@ -1,6 +1,6 @@
 ﻿using Rewind.Extensions.Persistence;
 
-namespace Rewind.Server.Base.Store
+namespace Rewind.Server.Store
 {
     public record class ServerState
     {

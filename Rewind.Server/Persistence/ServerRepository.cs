@@ -1,9 +1,8 @@
 ﻿using Microsoft.EntityFrameworkCore;
-using Rewind.Data;
 using Rewind.Extensions.Persistence;
-using Rewind.Server.Base.Persistence;
-using Rewind.Server.Base.Store;
 using Rewind.Server.Cache;
+using Rewind.Server.Data;
+using Rewind.Server.Store;
 using Rewind.Server.Users;
 namespace Rewind.Server.Persistence;
 

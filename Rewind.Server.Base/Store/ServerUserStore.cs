@@ -1,4 +1,4 @@
-﻿namespace Rewind.Server.Base.Store
+﻿namespace Rewind.Server.Store
 {
     public class ServerUserStore
     {

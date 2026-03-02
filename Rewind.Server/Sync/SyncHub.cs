@@ -1,10 +1,10 @@
 ﻿using Microsoft.AspNetCore.SignalR;
-using Rewind.Extensions.Persistence.Server;
+using Rewind.Server.Persistence;
 using Rewind.Server.Users;
 using Rewind.Store;
 using Rewind.Sync.Requests;
 
-namespace Rewind.Blazor.Sync
+namespace Rewind.Server.Sync
 {
 
     internal class SyncHub : Hub

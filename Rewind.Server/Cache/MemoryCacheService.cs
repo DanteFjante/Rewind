@@ -1,6 +1,5 @@
 ﻿using Microsoft.Extensions.Caching.Memory;
 using Rewind.Extensions.Persistence;
-using Rewind.Server.Base.Cache;
 using Rewind.Server.Users;
 
 namespace Rewind.Server.Cache

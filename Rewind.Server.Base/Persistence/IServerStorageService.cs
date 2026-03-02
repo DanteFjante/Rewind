@@ -1,6 +1,6 @@
-﻿using Rewind.Server.Base.Store;
+﻿using Rewind.Extensions.Persistence;
 
-namespace Rewind.Extensions.Persistence.Server
+namespace Rewind.Server.Persistence
 {
     public interface IServerStorageService : IPersistanceService
     {
