@@ -11,31 +11,24 @@ namespace Rewind.Extensions.Store
             Stores = storeManager;
         }
 
-        public async ValueTask<Snapshot<TState>?> GetState<TState>(StoreKey key)
+        public async ValueTask<Snapshot<TState>?> GetState<TState>(string name = "")
         {
             var store = await Stores.GetStore<TState>();
-            Snapshot<TState>? snapshot = store?.Snapshot;
-            return snapshot;
-        }
-
-        public async ValueTask<Snapshot<TState>?> GetState<TState>()
-        {
-            var store = await Stores.GetStore<TState>();
-            Snapshot<TState>? snapshot = store?.Snapshot;
+            Snapshot<TState>? snapshot = store?.GetSnapshot(name);
             return snapshot;
         }
 
         public async ValueTask<SerializableSnapshot?> GetState(StoreKey key)
         {
             var store = await Stores.GetStore(key.Type);
-            SerializableSnapshot? snapshot = store?.GetSnapshot();
+            SerializableSnapshot? snapshot = store?.GetSnapshot(key.Name);
             return snapshot;
         }
 
-        public async ValueTask<SerializableSnapshot?> GetState(string storeType)
+        public async ValueTask<SerializableSnapshot?> GetState(string storeType, string stateName = "")
         {
             var store = await Stores.GetStore(storeType);
-            SerializableSnapshot? snapshot = store?.GetSnapshot();
+            SerializableSnapshot? snapshot = store?.GetSnapshot(stateName);
             return snapshot;
         }
 
@@ -67,7 +60,7 @@ namespace Rewind.Extensions.Store
             if (store == null)
                 return null;
 
-            return store.Version;
+            return store.GetSnapshot(key.Name)?.Version;
         }
 
 

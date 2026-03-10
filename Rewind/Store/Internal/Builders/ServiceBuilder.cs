@@ -1,5 +1,6 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Rewind.Store.Internal.Registrations;
 
 namespace Rewind.Store.Builders
 {
@@ -32,7 +33,7 @@ namespace Rewind.Store.Builders
 
         public IServiceBuilder<TState, TService> SetFactory(Func<IServiceProvider, TService> factory)
         {
-            Provider = null;
+            Provider = sc => sc.TryAddScoped<TService>(factory);
             Factory = factory;
 
             return this;

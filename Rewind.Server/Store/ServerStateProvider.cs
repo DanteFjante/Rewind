@@ -23,17 +23,9 @@ namespace Rewind.Server.Store
             InitializeStores = true;
         }
 
-        public async ValueTask<Snapshot<TState>?> GetState<TState>(StoreKey key)
+        public async ValueTask<Snapshot<TState>?> GetState<TState>(string name = "")
         {
-            PersistenceKey pk = new PersistenceKey(key);
-            var store = await Storage.GetStateAsync(pk);
-
-            return store?.ToSnapshot().ToSnapshot<TState>();
-        }
-
-        public async ValueTask<Snapshot<TState>?> GetState<TState>()
-        {
-            PersistenceKey pk = new PersistenceKey(HelperMethods.StoreType<TState>());
+            PersistenceKey pk = new PersistenceKey(HelperMethods.StoreType<TState>(), name);
             var store = await Storage.GetStateAsync(pk);
 
             return store?.ToSnapshot().ToSnapshot<TState>();
@@ -47,9 +39,9 @@ namespace Rewind.Server.Store
             return store?.ToSnapshot();
         }
 
-        public async ValueTask<SerializableSnapshot?> GetState(string storeType)
+        public async ValueTask<SerializableSnapshot?> GetState(string storeType, string stateName = "")
         {
-            PersistenceKey pk = new PersistenceKey(storeType);
+            PersistenceKey pk = new PersistenceKey(storeType, stateName);
             var store = await Storage.GetStateAsync(pk);
 
             return store?.ToSnapshot();

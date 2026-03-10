@@ -1,4 +1,5 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
+using Rewind.Store.Internal.Registrations;
 
 namespace Rewind.Store.Builders
 {

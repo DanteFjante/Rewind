@@ -17,39 +17,68 @@ namespace Rewind.Blazor.Sync
     {
         public const string SyncUriRelative = "/rewind-sync";
 
-        public static IStoreBuilder<TState> AddSync<TState>(this IStoreBuilder<TState> store, Action<SyncSettings>? settings = null, bool useNavigationmanager = false)
+        public static IStoreBuilder<TState> AddSync<TState>(this IStoreBuilder<TState> store, Action<SyncSettings>? settings = null, bool useAuth = false)
         {
 
             return store
-                .SetStateManager<ExtendedStateManager>()
                 .AddMiddleware<SyncMiddleware<TState>>()
-                .AddOptions<SyncSettings>(b => b.Configure(settings))
+                .AddOptions<SyncSettings>(b => b.Configure(settings).ReadFromSettings("Sync"))
+                .AddService<HttpClient>()
                 .AddService<ISyncService>(b => b.SetImplementationType<ClientSyncService>())
                 .AddService<IClientSyncConnection>(b => b.SetImplementationType<ClientSyncConnection>())
                 .AddService<UserService>()
+                .AddService<ITokenProvider>(b => b.SetImplementationType<UserService>())
                 .AddService<HubConnection>(b => b.SetFactory(
                     sc =>
                     {
                         sc.TryAddScoped<HubConnection>(sp =>
                         {
+                            SyncSettings settings = sp.GetRequiredService<SyncSettings>();
+                            UserService? userService = sp.GetService<UserService>();
                             Uri uri;
-                            if (useNavigationmanager)
+                            var nav = sp.GetService<NavigationManager>();
+
+                            if (nav != null)
                             {
-                                var nav = sp.GetRequiredService<NavigationManager>();
-                                uri = nav.ToAbsoluteUri(SyncUriRelative);
+                                uri = SelectHubUrl(settings, nav, SyncUriRelative);
                             }
                             else
                             {
-                                SyncSettings settings = sp.GetRequiredService<SyncSettings>();
-                                uri = new UriBuilder(settings.ServerProtocol, settings.ServerAdress, settings.ServerPort, SyncUriRelative).Uri;
+                                uri = new UriBuilder(
+                                    settings.ServerProtocol, 
+                                    settings.ServerAdress, 
+                                    settings.ServerPort, 
+                                    SyncUriRelative).Uri;
                             }
                             return new HubConnectionBuilder()
-                            .WithUrl(uri)
+                            .WithUrl(uri, o =>
+                            {
+                                o.AccessTokenProvider = async () =>
+                                {
+                                    if (userService == null)
+                                        return null;
+                                    var login = await userService!.LoginUser();
+                                    return login?.Token;
+
+                                };
+                            })
                             .WithAutomaticReconnect()
                             .Build();
                         });
                     },
                     sp => sp.GetRequiredService<HubConnection>()));
+        }
+        static Uri SelectHubUrl(SyncSettings o, NavigationManager nav, string syncUriRelative)
+        {
+            var clientHost = new Uri(nav.BaseUri).Host; // "localhost" or something else
+
+            var clientUri = new UriBuilder(o.ServerProtocol, "localhost", o.ServerPort, syncUriRelative).Uri;
+            var serverUri = new UriBuilder(o.ServerProtocol, o.ServerAdress, o.ServerPort, syncUriRelative).Uri;
+
+            if (clientHost.Equals("localhost", StringComparison.OrdinalIgnoreCase))
+                return clientUri;
+
+            return serverUri;
         }
     }
 }

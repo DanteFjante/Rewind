@@ -1,6 +1,6 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
 
-namespace Rewind.Store.Builders
+namespace Rewind.Store.Internal.Registrations
 {
     internal class MiddlewareRegistration
     {

@@ -1,29 +1,33 @@
-﻿using Rewind.Middleware;
-using Rewind.Store;
+﻿using Rewind.Common;
+using Rewind.Middleware;
 using System.Collections.Concurrent;
+using System.Collections.Frozen;
 using System.Text.Json;
 
 namespace Rewind.Store;
 
 internal class Store<TState> : IInitializableStore<TState>, IStore<TState>
+    where TState : class
 {
-    //State
-    public StoreKey Key { get { lock (_gate) return _current.Key; } }
-    public long Version => Snapshot.Version;
-    public DateTime UpdatedAt => Snapshot.UpdatedAt;
-    public string? Reason => Snapshot.Reason;
 
-    public Snapshot<TState> Snapshot { get { lock (_gate) return _current; } }
-    private Snapshot<TState> _current;
+    public ConcurrentDictionary<string, Snapshot<TState>> Snapshots { get; }
+
+    public Snapshot<TState> Snapshot { get { lock (_gate) return Snapshots[""]; } }
 
     //Lifecycle
     public bool IsInitialized => _isInitialized;
     public bool IsDisposed => _disposed;
 
+    public string Type { get; } = HelperMethods.StoreType<TState>();
+
+    object? IStore.this[string key] => Get(key)?.State;
+
+    public TState? this[string key] => Get(key)?.State;
 
     private readonly object _gate = new();
     private volatile bool _disposed;
     private volatile bool _isInitialized;
+    private Func<TState> _initialState;
 
     //Middleware
     private IEnumerable<BaseMiddleware<TState>> _middleware;
@@ -32,14 +36,13 @@ internal class Store<TState> : IInitializableStore<TState>, IStore<TState>
     private BaseMiddleware<TState>.InitNextAsync _initPipline;
 
     //Event handling
-    private readonly ConcurrentDictionary<Guid, Action<TState>> _dispatchSubscribers;
+    private readonly ConcurrentDictionary<Guid, Action<StoreKey, TState>> _dispatchSubscribers;
     private readonly ConcurrentDictionary<Guid, Action<StoreKey>> _disposedSubscibers;
-    private readonly ConcurrentDictionary<Guid, Action<IInitializableStore>> _initializedSubscribers;
+    private readonly ConcurrentDictionary<Guid, Action<StoreKey, IInitializableStore>> _initializedSubscribers;
 
-    public Store(TState initial, StoreKey? key = null, IEnumerable<Func<BaseMiddleware<TState>>>? middlewareInits = null)
+    public Store(Func<TState> initial, IEnumerable<Func<BaseMiddleware<TState>>>? middlewareInits = null)
     {
-        var storeKey = key ?? new StoreKey(typeof(TState).FullName!, "");
-        _current = new Snapshot<TState>(storeKey, initial);
+        _initialState = initial;
         _middlewareInits = middlewareInits ?? new List<Func<BaseMiddleware<TState>>>();
         _middleware = new List<BaseMiddleware<TState>>();
 
@@ -49,49 +52,82 @@ internal class Store<TState> : IInitializableStore<TState>, IStore<TState>
 
         _initPipline = null!;
         _updatePipeline = null!;
-    }
-    public Store(Snapshot<TState> initial, IEnumerable<Func<BaseMiddleware<TState>>>? middlewareInits = null)
-    {
-        _current = initial;
-        _middlewareInits = middlewareInits ?? new List<Func<BaseMiddleware<TState>>>();
-        _middleware = new List<BaseMiddleware<TState>>();
 
-        _dispatchSubscribers = new();
-        _disposedSubscibers = new();
-        _initializedSubscribers = new();
+        Snapshots = new ConcurrentDictionary<string, Snapshot<TState>>();
 
-        _initPipline = null!;
-        _updatePipeline = null!;
+        Add(initial());
     }
+
 
     #region State
-
-    public string GetState()
+    public IEnumerable<string> GetKeys()
     {
-        return JsonSerializer.Serialize(this.Snapshot.State);
+        FrozenSet<string> keys;
+        lock (_gate)
+        {
+            keys = Snapshots.Keys.ToFrozenSet();
+        }
+
+        return keys;
+    }
+    public async ValueTask<bool> CreateStateAsync(string key)
+    {
+        if(Add(_initialState(), key))
+        {
+            if (_isInitialized)
+            {
+                await InitializeStateAsync(key);
+            }
+            return true;
+        }
+
+        return false;
     }
 
-    public SerializableSnapshot GetSnapshot()
+    public string? GetState(string key = "")
     {
-        return SerializableSnapshot.FromSnapshot(Snapshot);
+        var snapshot = Get(key);
+        if (snapshot == null)
+            return null;
+
+        return JsonSerializer.Serialize(snapshot.State);
     }
 
-    public async ValueTask UpdateAsync(Func<TState, TState> reducer, string? reason = null, CancellationToken ct = default)
+    public SerializableSnapshot? GetSnapshot(string key = "")
     {
-        Action<TState>[] listeners;
+        var snapshot = Get(key);
+        if (snapshot == null)
+            return null;
+
+        return SerializableSnapshot.FromSnapshot(snapshot);
+    }
+    Snapshot<TState>? IStore<TState>.GetSnapshot(string name)
+    {
+        return Get(name);
+    }
+
+    public async ValueTask UpdateAsync(Func<TState, TState> reducer, string key = "", string? reason = null, CancellationToken ct = default)
+    {
+        var current = Get(key);
+
+        if (current == null)
+            return;
+
+        Action<StoreKey, TState>[] listeners;
         TState oldValue;
-        StoreKey key;
+        StoreKey storekey;
         long version;
 
         lock (_gate)
         {
             ThrowIfNotReady();
-            oldValue = _current.State;
-            key = _current.Key;
-            version = _current.Version + 1;
+            
+            oldValue = current.State;
+            storekey = current.Key;
+            version = current.Version + 1;
         }
 
-        var context = new UpdateMiddlewareContext<TState>(reducer, oldValue, key, version, reason ?? "");
+        var context = new UpdateMiddlewareContext<TState>(reducer, oldValue, storekey, version, reason ?? "");
 
         await _updatePipeline(context, ct);
 
@@ -103,15 +139,22 @@ internal class Store<TState> : IInitializableStore<TState>, IStore<TState>
         if (ReferenceEquals(oldValue, newState))
             return;
 
+        var n = current with
+        {
+            Reason = context.Reason,
+            UpdatedAt = DateTime.UtcNow,
+            State = newState,
+            Version = context.Version
+        };
+
+        if (!Update(n))
+        {
+            return;
+        }
+        
+
         lock (_gate)
         {
-            _current = _current with
-            {
-                Reason = context.Reason,
-                UpdatedAt = DateTime.UtcNow,
-                State = newState,
-                Version = context.Version
-            };
             listeners = _dispatchSubscribers.Values.ToArray();
         }
 
@@ -119,83 +162,52 @@ internal class Store<TState> : IInitializableStore<TState>, IStore<TState>
         {
             try
             {
-                action.Invoke(newState);
+                action.Invoke(current.Key, newState);
             }
             catch { }
         }
-    }
-
-    public async ValueTask SetState(string serializedState, string reason, CancellationToken ct = default)
-    {
-        lock (_gate)
-        {
-            ThrowIfNotReady();
-        }
-
-        var newState = JsonSerializer.Deserialize<TState>(serializedState);
-        if (newState is TState)
-        {
-            await UpdateAsync(state => (TState)newState, reason, ct);
-            return;
-        }
-        
-        var newSnapshot = JsonSerializer.Deserialize<Snapshot<TState>>(serializedState);
-        if (newSnapshot is Snapshot<TState>)
-        {
-            await SetSnapshot(newSnapshot);
-            return;
-        }
-        
-        var serializable = JsonSerializer.Deserialize<SerializableSnapshot>(serializedState);
-        if (serializable is SerializableSnapshot)
-        {
-            await SetSnapshot(serializable.ToSnapshot<TState>());
-            return;
-        }
-        throw new InvalidDataException("Serialized data for set state needs to be eiher StoreState<TState> or TState");
-
     }
 
     public ValueTask SetSnapshot(SerializableSnapshot snapshot, bool silent = false, CancellationToken ct = default)
     {
         return SetSnapshot(snapshot.ToSnapshot<TState>(), silent, ct);
     }
-    
+
     public async ValueTask SetSnapshot(Snapshot<TState> snapshot, bool silent = false, CancellationToken ct = default)
     {
+        var current = Get(snapshot.Key.Name);
+        if (current == null)
+            return;
+
         lock (_gate)
         {
             ThrowIfNotReady();
-            if (ReferenceEquals(_current, snapshot))
+            if (ReferenceEquals(current, snapshot))
                 return;
         }
         if (silent)
         {
-            lock (_gate)
-            {
-                _current = snapshot;
-                return;
-            }
+            Update(snapshot);
+            return;
         }
 
-
-        Action<TState>[] listeners;
+        Action<StoreKey, TState>[] listeners;
         TState oldValue;
-        StoreKey key;
+        StoreKey storekey;
         long version;
 
         lock (_gate)
         {
             ThrowIfNotReady();
-            oldValue = _current.State;
-            key = snapshot.Key;
+            oldValue = current.State;
+            storekey = snapshot.Key;
             version = snapshot.Version;
         }
 
         var context = new UpdateMiddlewareContext<TState>(
             state => snapshot.State,
             oldValue,
-            key,
+            storekey,
             version, 
             snapshot.Reason ?? ""
             );
@@ -210,15 +222,20 @@ internal class Store<TState> : IInitializableStore<TState>, IStore<TState>
         if (ReferenceEquals(oldValue, newState))
             return;
 
+        var n = current with
+        {
+            Reason = context.Reason,
+            UpdatedAt = DateTime.UtcNow,
+            State = newState,
+            Version = context.Version
+        };
+        if (!Update(n))
+        {
+            return;
+        }
+
         lock (_gate)
         {
-            _current = _current with
-            {
-                Reason = context.Reason,
-                UpdatedAt = DateTime.UtcNow,
-                State = newState,
-                Version = context.Version
-            };
             listeners = _dispatchSubscribers.Values.ToArray();
         }
 
@@ -226,12 +243,117 @@ internal class Store<TState> : IInitializableStore<TState>, IStore<TState>
         {
             try
             {
-                action.Invoke(newState);
+                action.Invoke(current.Key, newState);
             }
             catch { }
         }
         return;
     }
+
+    public async ValueTask SetState(string serializedState, string key = "", string? reason = null, CancellationToken ct = default)
+    {
+        lock (_gate)
+        {
+            ThrowIfNotReady();
+        }
+
+        var newState = JsonSerializer.Deserialize<TState>(serializedState);
+        if (newState is TState)
+        {
+            await UpdateAsync(state => (TState)newState, key, reason, ct);
+            return;
+        }
+
+        throw new InvalidDataException($"Serialized data for set state needs to be of type {HelperMethods.StoreType<TState>()}");
+    }
+
+    public async ValueTask SetSnapshot(string serializedSnapshot, string? reason = null, CancellationToken ct = default)
+    {
+        lock (_gate)
+        {
+            ThrowIfNotReady();
+        }
+
+        var newSnapshot = JsonSerializer.Deserialize<Snapshot<TState>>(serializedSnapshot);
+        if (newSnapshot is Snapshot<TState>)
+        {
+            newSnapshot = newSnapshot with
+            {
+                Reason = reason ?? newSnapshot.Reason
+            };
+            await SetSnapshot(newSnapshot);
+            return;
+        }
+
+        var serializable = JsonSerializer.Deserialize<SerializableSnapshot>(serializedSnapshot);
+        if (serializable is SerializableSnapshot)
+        {
+            serializable = serializable with {
+                Reason = reason ?? serializable.Reason
+            };
+
+            await SetSnapshot(serializable.ToSnapshot<TState>());
+            return;
+        }
+        throw new InvalidDataException($"Serialized data for set snapshot needs to be eiher SerializableState, StoreState<{HelperMethods.StoreType<TState>()}>");
+    }
+
+    #region Private Collection Functions
+    private bool Update(TState state, string key = "", string? reason = null)
+    {
+
+        if (Snapshots.TryGetValue(key, out var snapshot))
+        {
+            if (Snapshots.TryUpdate(key, snapshot.Update(state, reason), snapshot))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private bool Update(Snapshot<TState> snapshot, string? reason = null)
+    {
+
+        if (Snapshots.TryGetValue(snapshot.Key.Name, out var oldSnapshot))
+        {
+            if (Snapshots.TryUpdate(snapshot.Key.Name, snapshot, oldSnapshot))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private bool Add(Snapshot<TState> snapshot)
+    {
+        return Snapshots.TryAdd(snapshot.Key.Name, snapshot);
+    }
+
+    private bool Add(TState state, string key = "")
+    {
+        var snapshot = new Snapshot<TState>(new StoreKey(HelperMethods.StoreType<TState>(), key), state);
+        return Snapshots.TryAdd(key, snapshot);
+    }
+
+    private bool Remove(string key)
+    {
+        bool success = Snapshots.Remove(key, out _);
+        return success;
+    }
+
+    private Snapshot<TState>? Get(string key)
+    {
+        if (Snapshots.TryGetValue(key, out var snapshot))
+        {
+            return snapshot;
+        }
+        return null;
+    }
+
+    #endregion
 
     #endregion
 
@@ -291,41 +413,61 @@ internal class Store<TState> : IInitializableStore<TState>, IStore<TState>
             _updatePipeline = BuildUpdatePipeline();
         }
 
+        bool allSuccess = true;
+        foreach (var snapshot in Snapshots)
+        {
+            if (!await InitializeStateAsync("", ct))
+                allSuccess = false;
+        }
+
+        _isInitialized = allSuccess;
+
+    }
+
+    private async Task<bool> InitializeStateAsync(string key, CancellationToken ct = default)
+    {
+
         InitializeMiddlewareContext<TState> context;
-        
+        var current = Get(key);
+
+        if (current == null)
+            return false;
+
         lock (_gate)
         {
-            var key = _current.Key;
-            var state = _current.State;
-            context = new InitializeMiddlewareContext<TState>(key, state);
+            var storekey = current.Key;
+            var state = current.State;
+            context = new InitializeMiddlewareContext<TState>(storekey, state);
         }
 
         await _initPipline(context, ct);
 
         if (context.Blocked)
         {
-            throw new InvalidOperationException($"Could not initialize store [{typeof(TState).FullName}] because of: {context.BlockedReason}");
+            throw new InvalidOperationException($"Could not initialize store [{HelperMethods.StoreType<TState>()}] because of: {context.BlockedReason}");
         }
 
         lock (_gate)
         {
-            _current = _current with
+            var success = Update(current with
             {
                 Reason = context.Reason,
                 UpdatedAt = context.At,
                 State = context.State,
                 Version = context.Version
-            };
-            _isInitialized = true;
+            });
+            if (!success) return false;
         }
+
         var subscribers = _initializedSubscribers.Values.AsEnumerable();
         foreach (var init in subscribers)
         {
-            init(this);
+            init(current.Key, this);
         }
 
-        _initializedSubscribers.Clear();
+        return true;
     }
+
     public void Dispose()
     {
         if (_disposed) 
@@ -349,45 +491,31 @@ internal class Store<TState> : IInitializableStore<TState>, IStore<TState>
     private void ThrowIfNotReady()
     {
         if (_disposed) throw new ObjectDisposedException(nameof(Store<TState>));
-        if (!_isInitialized) throw new InvalidOperationException($"Store for {typeof(TState).FullName} is not initialized.");
+        if (!_isInitialized) throw new InvalidOperationException($"Store for {HelperMethods.StoreType<TState>()} is not initialized.");
     }
 
     #endregion
 
     #region Subsciptions
 
-    public IDisposable Subscribe(Action listener)
+    public IDisposable Subscribe(Action<StoreKey> listener)
     {
         if (_disposed)
             ThrowIfNotReady();
 
         Subscription subscription = Subscription.OnDispatch(this);
-        _dispatchSubscribers.TryAdd(subscription.Id, _ => listener());
+        _dispatchSubscribers.TryAdd(subscription.Id, (key,_) => listener(key));
 
         return subscription;
     }
 
-    public IDisposable Subscribe(Action<TState> listener, bool fireImmediately = true)
+    public IDisposable Subscribe(Action<StoreKey, TState> listener)
     {
         if(_disposed)
             ThrowIfNotReady();
 
         Subscription subscription = Subscription.OnDispatch(this);
         _dispatchSubscribers.TryAdd(subscription.Id, listener);
-
-        if (_isInitialized && fireImmediately)
-        {
-            TState state;
-            lock (_gate)
-            {
-                state = _current.State;
-            }
-            try
-            {
-                listener.Invoke(state);
-            }
-            catch { }
-        }
 
         return subscription;
     }
@@ -403,7 +531,7 @@ internal class Store<TState> : IInitializableStore<TState>, IStore<TState>
         return sub;
     }
 
-    public IDisposable SubscribeOnInitialized(Action<IInitializableStore> action)
+    public IDisposable SubscribeOnInitialized(Action<StoreKey, IInitializableStore> action)
     {
         if (_disposed)
             ThrowIfNotReady();
@@ -480,4 +608,6 @@ internal class Store<TState> : IInitializableStore<TState>, IStore<TState>
         }
     }
     #endregion
+
+
 }

@@ -33,7 +33,7 @@ namespace Rewind.Server.Builders
 
         public ServiceBuilder<TService> SetFactory(Func<IServiceProvider, TService> factory)
         {
-            Provider = null;
+            Provider = sc => sc.TryAddScoped(factory);
             Factory = factory;
 
             return this;

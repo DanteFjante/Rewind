@@ -16,6 +16,6 @@ public interface IStoreManager : IStoreProvider
     //Returns true if provider has store
     public ValueTask<bool> HasStore<TState>();
 
-    //Returns store state version, -1 if no such store exists
-    public ValueTask<long?> Version<TState>(); 
+    //Returns store state version, -1 if no such store or state name exists
+    public ValueTask<long?> Version<TState>(string name = ""); 
 }

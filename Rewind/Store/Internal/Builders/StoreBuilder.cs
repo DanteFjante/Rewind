@@ -1,12 +1,12 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
-using Rewind.Common;
-using Rewind.Extensions.Store;
 using Rewind.Middleware;
+using Rewind.Store.Internal.Registrations;
 
 namespace Rewind.Store.Builders;
 
 internal class StoreBuilder<TState> : IStoreBuilder<TState>
+    where TState : class
 {
     readonly List<MiddlewareRegistration> _middleware;
     readonly List<OptionsRegistration> _options;
@@ -15,15 +15,11 @@ internal class StoreBuilder<TState> : IStoreBuilder<TState>
 
     public Dictionary<string, object> Settings { get; }
 
-    TState _initialState;
-    Type _stateManagerType;
-    Type _storeManagerType;
+    Func<TState> _initialState;
 
-    public StoreBuilder(TState initialState)
+    public StoreBuilder(Func<TState> initialState)
     {
         _initialState = initialState;
-        _stateManagerType = typeof(StateManager);
-        _storeManagerType = typeof(StoreManager);
 
         Settings = new();
         _middleware = new();
@@ -31,18 +27,6 @@ internal class StoreBuilder<TState> : IStoreBuilder<TState>
         _services = new();
         _onStoreCreation = new();
     }
-
-    public IStoreBuilder<TState> SetStoreManager<StoreManager>() where StoreManager : IStoreManager
-    {
-        _storeManagerType = typeof(StoreManager);
-        return this;
-    }
-    public IStoreBuilder<TState> SetStateManager<StateManager>() where StateManager : IStateManager
-    {
-        _stateManagerType = typeof(StateManager);
-        return this;
-    }
-
 
     public IStoreBuilder<TState> AddStoreDecorator(Action<IServiceProvider, IInitializableStore<TState>> storeDecorator)
     {
@@ -64,17 +48,6 @@ internal class StoreBuilder<TState> : IStoreBuilder<TState>
         return this;
     }
 
-    private void SetupMiddleware(
-        IServiceCollection sc, 
-        IEnumerable<MiddlewareRegistration> registrations)
-    {
-        foreach (var factory in registrations)
-        {
-            if(factory.ProviderRegistration != null)
-                factory.ProviderRegistration(sc);
-        }
-    }
-
     public IStoreBuilder<TState> AddOptions<TOptions>(
         Func<IOptionsBuilder<TState, TOptions>, IOptionsBuilder<TState, TOptions>>? builder = null) 
         where TOptions : class
@@ -87,15 +60,6 @@ internal class StoreBuilder<TState> : IStoreBuilder<TState>
         _options.Add(optionsBuilder.Build());
 
         return this;
-    }
-
-    private void SetupOptions(IServiceCollection sc, IEnumerable<OptionsRegistration> options)
-    {
-        foreach (var option in options)
-        {
-            if(option.ProviderRegistration != null)
-                option.ProviderRegistration(sc);
-        }
     }
 
     public IStoreBuilder<TState> AddService<TService>(
@@ -111,8 +75,23 @@ internal class StoreBuilder<TState> : IStoreBuilder<TState>
 
         return this;
     }
+    private void SetupMiddleware(IServiceCollection sc, IEnumerable<MiddlewareRegistration> registrations)
+    {
+        foreach (var factory in registrations)
+        {
+            if (factory.ProviderRegistration != null)
+                factory.ProviderRegistration(sc);
+        }
+    }
 
-
+    private void SetupOptions(IServiceCollection sc, IEnumerable<OptionsRegistration> options)
+    {
+        foreach (var option in options)
+        {
+            if (option.ProviderRegistration != null)
+                option.ProviderRegistration(sc);
+        }
+    }
     private void SetupServices(IServiceCollection sc, IEnumerable<ServiceRegistration> registrations)
     {
         foreach (var registration in registrations)
@@ -122,9 +101,8 @@ internal class StoreBuilder<TState> : IStoreBuilder<TState>
         }
     }
 
-    public Func<IServiceProvider, IInitializableStore<TState>> Build(IServiceCollection sc)
+    public void Setup(IServiceCollection sc)
     {
-        
         SetupServices(sc, _services);
 
         SetupOptions(sc, _options);
@@ -132,17 +110,21 @@ internal class StoreBuilder<TState> : IStoreBuilder<TState>
         SetupMiddleware(sc, _middleware);
 
         var mwPipeline = BuildMiddlewarePipeline(_middleware);
-        StoreKey key = new StoreKey(HelperMethods.StoreType<TState>(), "");
 
-        sc.TryAddScoped(sp => StoreFactory.Create(_initialState, key, mwPipeline(sp)));
+        sc.TryAddScoped(sp => StoreFactory.Create(_initialState, mwPipeline(sp)));
         sc.TryAddScoped<IStore<TState>>(sp => sp.GetRequiredService<IInitializableStore<TState>>());
         sc.AddScoped<IStore>(sp => sp.GetRequiredService<IInitializableStore<TState>>());
         sc.AddScoped<IInitializableStore>(sp => sp.GetRequiredService<IInitializableStore<TState>>());
+    }
 
-        sc.TryAdd(new ServiceDescriptor(typeof(IStoreManager), _storeManagerType, ServiceLifetime.Scoped));
-        sc.TryAdd(new ServiceDescriptor(typeof(IStateManager), _stateManagerType, ServiceLifetime.Scoped));
-
-        return sp => sp.GetRequiredService<IInitializableStore<TState>>();
+    public IInitializableStore<TState> Build(IServiceProvider sp)
+    {
+        var store = sp.GetRequiredService<IInitializableStore<TState>>();
+        foreach (var oncreate in _onStoreCreation)
+        {
+            oncreate(sp, store);
+        }
+        return store;
     }
 
     private Func<IServiceProvider, List<Func<BaseMiddleware<TState>>>> BuildMiddlewarePipeline(

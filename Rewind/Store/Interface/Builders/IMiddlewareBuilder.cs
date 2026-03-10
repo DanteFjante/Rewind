@@ -1,5 +1,6 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
 using Rewind.Middleware;
+using Rewind.Store.Internal.Registrations;
 
 namespace Rewind.Store.Builders
 {

@@ -7,19 +7,13 @@ namespace Rewind.Base.Store.Implementation
     {
         public Dictionary<StoreKey, SerializableSnapshot> States { get; set; } = new();
 
-        public ValueTask<Snapshot<TState>?> GetState<TState>(StoreKey key)
+        public ValueTask<Snapshot<TState>?> GetState<TState>(string name = "")
         {
-            if (States.TryGetValue(key, out var snapshot))
+            if (States.TryGetValue(new StoreKey(HelperMethods.StoreType<TState>(), name), out var snapshot))
             {
                 return ValueTask.FromResult<Snapshot<TState>?>(snapshot.ToSnapshot<TState>());
             }
             return ValueTask.FromResult<Snapshot<TState>?>(null);
-        }
-
-        public ValueTask<Snapshot<TState>?> GetState<TState>()
-        {
-            StoreKey key = new StoreKey(HelperMethods.StoreType<TState>());
-            return GetState<TState>(key);
         }
 
         public ValueTask<SerializableSnapshot?> GetState(StoreKey key)
@@ -31,9 +25,9 @@ namespace Rewind.Base.Store.Implementation
             return ValueTask.FromResult<SerializableSnapshot?>(null);
         }
 
-        public ValueTask<SerializableSnapshot?> GetState(string storeType)
+        public ValueTask<SerializableSnapshot?> GetState(string storeType, string stateName = "")
         {
-            StoreKey key = new StoreKey(storeType);
+            StoreKey key = new StoreKey(storeType, stateName);
             return GetState(key);
         }
 

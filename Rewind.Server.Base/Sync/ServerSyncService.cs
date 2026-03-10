@@ -27,6 +27,7 @@ namespace Rewind.Server.Sync
 
         public async ValueTask UpdateRequest(SerializableSnapshot update, CancellationToken ct = default)
         {
+            
             ServerDispatchRequest request = new ServerDispatchRequest()
             {
                 Snapshot = update,

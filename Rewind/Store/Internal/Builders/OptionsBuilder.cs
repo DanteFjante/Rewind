@@ -3,6 +3,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Options;
 using Rewind.Common;
+using Rewind.Store.Internal.Registrations;
 
 namespace Rewind.Store.Builders
 {

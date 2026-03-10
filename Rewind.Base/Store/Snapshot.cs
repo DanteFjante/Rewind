@@ -1,4 +1,5 @@
-﻿using System.Text.Json;
+﻿using Rewind.Common;
+using System.Text.Json;
 
 namespace Rewind.Store;
 public record Snapshot<TState>(
@@ -32,7 +33,7 @@ public record SerializableSnapshot(
     {
         TState? state = JsonSerializer.Deserialize<TState>(State);
         if (state == null)
-            throw new InvalidDataException($"Could not deserialize state to {typeof(TState)}");
+            throw new InvalidDataException($"Could not deserialize state to {HelperMethods.StoreType<TState>()}");
 
         return new Snapshot<TState>(Key, state, Version, UpdatedAt, Reason);
     }
@@ -52,7 +53,7 @@ public record SerializableSnapshot(
     {
         TState? state = JsonSerializer.Deserialize<TState>(State);
         if(state == null)
-            throw new InvalidDataException($"Could not deserialize state to {typeof(TState)}");
+            throw new InvalidDataException($"Could not deserialize state to {HelperMethods.StoreType<TState>()}");
 
         return state;
     }

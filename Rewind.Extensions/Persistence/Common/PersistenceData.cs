@@ -1,4 +1,5 @@
-﻿using Rewind.Store;
+﻿using Rewind.Common;
+using Rewind.Store;
 using System.Text.Json;
 
 namespace Rewind.Extensions.Persistence;
@@ -14,7 +15,7 @@ public class PersistenceData
 
     public string StateJson { get; set; }
 
-    public T Get<T>() => JsonSerializer.Deserialize<T>(StateJson) ?? throw new InvalidCastException($"Can not cast state to type [{typeof(T).FullName}]");
+    public TState Get<TState>() => JsonSerializer.Deserialize<TState>(StateJson) ?? throw new InvalidCastException($"Can not cast state to type [{HelperMethods.StoreType<TState>()}]");
 
 #pragma warning disable CS8618 // Non-nullable field must contain a non-null value when exiting constructor. Consider adding the 'required' modifier or declaring as nullable.
     public PersistenceData()

@@ -4,8 +4,7 @@ namespace Rewind.Sync.Requests
 {
     public class ServerDispatchRequest
     {
-        public string? UserId { get; set; }
-        public string? StoreInstanceId { get; set; }
+        public string? BranchName { get; set; }
 
         public StoreKey StoreKey { get; set; }
 

@@ -1,22 +1,17 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
+using Rewind.Base.Store.Interface;
 using Rewind.Store.Builders;
+using Rewind.Store.Internal.Builders;
 
 namespace Rewind.Store
 {
     public static class StoreExtensionMethods
     {
-
-        public static IServiceCollection AddStore<TState>(this IServiceCollection services, TState initialState, Func<IStoreBuilder<TState>, IStoreBuilder<TState>>? factory = null)
+        public static IServiceCollection AddDispatcher(this IServiceCollection services, Func<IDispatcherBuilder, IDispatcherBuilder> dispatcherBuilderFactory)
         {
-            
-            StoreBuilder<TState> storeBuilder = new StoreBuilder<TState>(initialState);
-
-            Func<IStoreBuilder<TState>, IStoreBuilder<TState>> internalFactory = (sb) => (factory?.Invoke(sb) ?? sb);
-
-            storeBuilder = (StoreBuilder<TState>) internalFactory(storeBuilder);
-
-            storeBuilder.Build(services);
-
+            DispatcherBuilder builder = new DispatcherBuilder();
+            builder = (DispatcherBuilder) dispatcherBuilderFactory(builder);
+            builder.BuildFactory(services);
             return services;
         }
     }

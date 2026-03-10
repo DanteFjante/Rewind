@@ -15,7 +15,4 @@ public interface IStoreBuilder<TState>
         where TService : class;
 
     public IStoreBuilder<TState> AddStoreDecorator(Action<IServiceProvider, IInitializableStore<TState>> storeDecorator);
-
-    public IStoreBuilder<TState> SetStoreManager<StoreManager>() where StoreManager : IStoreManager;
-    public IStoreBuilder<TState> SetStateManager<StateManager>() where StateManager : IStateManager;
 }

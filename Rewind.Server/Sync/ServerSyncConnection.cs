@@ -14,8 +14,8 @@ namespace Rewind.Server.Sync
 
         public async ValueTask ServerDispatch(ServerDispatchRequest dispatch, CancellationToken ct = default)
         {
-            if (dispatch.StoreInstanceId != null)
-                await HubContext.Clients.Group(dispatch.StoreInstanceId).SendAsync("ServerDispatch", dispatch, ct);
+            if (dispatch.BranchName != null)
+                await HubContext.Clients.Group(dispatch.BranchName).SendAsync("ServerDispatch", dispatch, ct);
         }
 
         public async ValueTask<ClientSyncResponse> ServerSync(ServerSyncRequest request, CancellationToken ct = default)

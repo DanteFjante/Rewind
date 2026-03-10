@@ -21,7 +21,7 @@ namespace Rewind.Base.Store.Implementation
 
         public ValueTask<bool> AddStore(IStore store)
         {
-            if (Stores.Any(x => x.Key.Type == store.Key.Type))
+            if (Stores.Any(x => x.Type == store.Type))
                 return ValueTask.FromResult(false);
 
             Stores.Add(store);
@@ -31,12 +31,12 @@ namespace Rewind.Base.Store.Implementation
 
         public ValueTask<bool> RemoveStore(string storeType)
         {
-            if (!Stores.Any(x => x.Key.Type == storeType))
+            if (!Stores.Any(x => x.Type == storeType))
             {
                 return ValueTask.FromResult(false);
             }
 
-            Stores.RemoveAll(x => x.Key.Type == storeType);
+            Stores.RemoveAll(x => x.Type == storeType);
             return ValueTask.FromResult(true);
         }
 
@@ -60,13 +60,18 @@ namespace Rewind.Base.Store.Implementation
         }
 
         public ValueTask<bool> HasStore<TState>() 
-            => ValueTask.FromResult(Stores.Any(x => x.Key.Type == HelperMethods.StoreType<TState>()));
+            => ValueTask.FromResult(Stores.Any(x => x.Type == HelperMethods.StoreType<TState>()));
 
-        public ValueTask<long?> Version<TState>()
+        public ValueTask<long?> Version<TState>(string name = "")
         {
-            if (!Stores.Any(x => x.Key.Type == HelperMethods.StoreType<TState>()))
+            if (!Stores.Any(x => x.Type == HelperMethods.StoreType<TState>()))
                 return new((long?)null);
-            return new(Stores.Max(x => x.Version));
+            return new(Stores.Max(x => x.GetSnapshot(name)?.Version ?? -1));
+        }
+
+        public ValueTask<IEnumerable<string>> GetStoreTypes()
+        {
+            return new(Stores.Select(x => x.Type).AsEnumerable());
         }
     }
 }

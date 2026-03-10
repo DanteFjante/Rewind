@@ -2,6 +2,7 @@
 
 public interface IStoreProvider
 {
+    public ValueTask<IEnumerable<string>> GetStoreTypes();
     public ValueTask<IStore<TState>?> GetStore<TState>();
     public ValueTask<IStore?> GetStore(string storeType);
     public void EnableStoreInitialization();

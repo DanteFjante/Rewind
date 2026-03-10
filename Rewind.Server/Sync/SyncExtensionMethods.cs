@@ -1,9 +1,9 @@
 ﻿using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Rewind.Extensions.Sync;
 using Rewind.Server.Builders;
+using Rewind.Server.Sync.Builder;
 using Rewind.Settings;
 
 namespace Rewind.Server.Sync
@@ -11,9 +11,10 @@ namespace Rewind.Server.Sync
     public static class SyncExtensionMethods
     {
         public const string SyncUriRelative = "/rewind-sync";
-        public static void MapRewind(this IEndpointRouteBuilder app)
+        public static MapBuilder UseSync(this MapBuilder mapBuider)
         {
-            app.MapHub<SyncHub>(SyncUriRelative);
+            mapBuider.AddApplicationAction(rb => rb.MapHub<SyncHub>(SyncUriRelative).RequireAuthorization().AllowAnonymous());
+            return mapBuider;
         }
 
         public static ServerBuilder AddServerSync(this ServerBuilder storeBuilder) => storeBuilder

@@ -14,7 +14,6 @@ namespace Rewind.Extensions.Persistence
             where TPersistenceService : class, IPersistanceService
         {
             storeBuilder
-                .SetStateManager<ExtendedStateManager>()
                 .AddOptions<PersistenceSettings>(b => appSettingsKey != null ? b.ReadFromSettings(appSettingsKey) : b)
                 .AddService<IPersistanceService>(b => b.SetImplementationType<TPersistenceService>())
                 .AddMiddleware<PersistenceMiddleware<TState>>();
@@ -29,7 +28,6 @@ namespace Rewind.Extensions.Persistence
     where TRepo : class, ILocalRepo
         {
             storeBuilder
-                .SetStateManager<ExtendedStateManager>()
                 .AddOptions<PersistenceSettings>(b => appSettingsKey != null ? b.ReadFromSettings(appSettingsKey) : b)
                 .AddService<IPersistanceService>(b => b.SetImplementationType<LocalStorageService>())
                 .AddService<ILocalRepo>(b => b.SetImplementationType<TRepo>())

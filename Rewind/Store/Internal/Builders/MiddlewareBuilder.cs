@@ -1,6 +1,7 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Rewind.Middleware;
+using Rewind.Store.Internal.Registrations;
 namespace Rewind.Store.Builders
 {
     internal class MiddlewareBuilder<TState, TMiddleware> : IMiddlewareBuilder<TState, TMiddleware>

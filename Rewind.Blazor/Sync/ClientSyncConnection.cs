@@ -31,6 +31,7 @@ namespace Rewind.Blazor.Sync
         #region Outgoing
         public async ValueTask ClientUpdateAsync(ClientUpdateRequest request, CancellationToken ct = default)
         {
+            await Connection.StopAsync();
             if (Connection.State == HubConnectionState.Disconnected)
             {
                 await Connection.StartAsync(ct);
@@ -42,6 +43,7 @@ namespace Rewind.Blazor.Sync
 
         public async ValueTask<ServerSyncResponse> ClientRequestAsync(ClientSyncRequest request, CancellationToken ct = default)
         {
+            await Connection.StopAsync();
             if (Connection.State == HubConnectionState.Disconnected)
             {
                 await Connection.StartAsync(ct);

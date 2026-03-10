@@ -1,4 +1,5 @@
 ﻿using Microsoft.Extensions.Logging;
+using Rewind.Common;
 using Rewind.Middleware;
 
 namespace Rewind.Logging
@@ -30,7 +31,7 @@ namespace Rewind.Logging
 
         protected override ValueTask BeforeInitializeStore(InitializeMiddlewareContext<TState> context, InitNextAsync next, CancellationToken ct)
         {
-            Info("Initializing Store" + typeof(TState).FullName);
+            Info("Initializing Store" + HelperMethods.StoreType<TState>());
             return next(context, ct);
         }
 
@@ -38,11 +39,11 @@ namespace Rewind.Logging
         {
             if (context.Blocked)
             {
-                Warn($"Initializing store <{typeof(TState).FullName}> was Blocked, reason: {context.BlockedReason}");
+                Warn($"Initializing store <{HelperMethods.StoreType<TState>()}> was Blocked, reason: {context.BlockedReason}");
             }
             else
             {
-                Info($"Store Initialized for: <{typeof(TState).FullName}> with state: {context.State}");
+                Info($"Store Initialized for: <{HelperMethods.StoreType<TState>()}> with state: {context.State}");
             }
 
             return next(context, ct);
@@ -50,7 +51,7 @@ namespace Rewind.Logging
 
         protected override ValueTask BeforeUpdate(UpdateMiddlewareContext<TState> context, UpdateNextAsync next, CancellationToken ct)
         {
-            Info($"Updating store: <{typeof(TState).FullName}> with state: {context.CurrentState}");
+            Info($"Updating store: <{HelperMethods.StoreType<TState>()}> with state: {context.CurrentState}");
             return next(context, ct);
         }
 
@@ -58,11 +59,11 @@ namespace Rewind.Logging
         {
             if (context.Blocked)
             {
-                Warn($"Updating store <{typeof(TState).FullName}> was Blocked, reason: {context.BlockedReason}");
+                Warn($"Updating store <{HelperMethods.StoreType<TState>()}> was Blocked, reason: {context.BlockedReason}");
             }
             else
             {
-                Info($"Updated store: <{typeof(TState).FullName}> from state {context.CurrentState} with new state {context.NextState}");
+                Info($"Updated store: <{HelperMethods.StoreType<TState>()}> from state {context.CurrentState} with new state {context.NextState}");
             }
             return next(context, ct);
         }

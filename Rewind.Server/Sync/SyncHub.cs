@@ -11,18 +11,22 @@ namespace Rewind.Server.Sync
     {
 
         IStateManager stateManager;
-        IUserContext? user;
+        UserContext? user;
         IServerStorageService storageService;
-        public SyncHub(IStateManager stateManager, IServerStorageService storageService, IUserContext? user = null)
+        public SyncHub(IStateManager stateManager, IServerStorageService storageService, UserContext? user = null)
         {
             this.stateManager = stateManager;
             this.storageService = storageService;
             this.user = user;
+
         }
 
         public async Task<ServerSyncResponse> OnClientSync(ClientSyncRequest request)
         {
+            SetUser();
+
             var state = await stateManager.GetState(request.StoreKey);
+
             ServerSyncResponse response;
             if (state != null)
             {
@@ -42,6 +46,7 @@ namespace Rewind.Server.Sync
 
         public async Task OnClientUpdate(ClientUpdateRequest request)
         {
+            SetUser();
             await stateManager.SetState(request.Snapshot);
         }
 
@@ -52,7 +57,17 @@ namespace Rewind.Server.Sync
 
         public async override Task OnConnectedAsync()
         {
+            SetUser();
+        }
 
+        private void SetUser()
+        {
+            if (user != null)
+            {
+                user.UserId = Context.UserIdentifier;
+                user.IsAuthenticated = Context.User?.Identity?.IsAuthenticated ?? false;
+                user.Principal = Context.User;
+            }
         }
 
     }

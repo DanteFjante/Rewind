@@ -20,7 +20,7 @@ namespace Rewind.Extensions.Sync.Client
             ClientSyncRequest request = new ClientSyncRequest()
             {
                 StoreKey = key,
-                UserId = userService.UserId
+                UserId = userService.Login?.UserName ?? ""
             };
             var response = await connection.ClientRequestAsync(request);
             return response?.Snapshot;
@@ -32,7 +32,7 @@ namespace Rewind.Extensions.Sync.Client
             {
                 Snapshot = update,
                 StoreKey = update.Key,
-                UserId = userService.UserId
+                UserId = userService.Login?.UserName ?? ""
             };
 
             return connection.ClientUpdateAsync(request, ct);

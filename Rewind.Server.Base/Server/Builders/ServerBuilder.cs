@@ -26,6 +26,12 @@ namespace Rewind.Server.Builders
             return this;
         }
 
+        public ServerBuilder AddService(Action<IServiceCollection> setup)
+        {
+            services.Add(new ServiceRegistration(setup, null, null));
+            return this;
+        }
+
         public ServerBuilder AddOptions<TOptions>(Func<OptionsBuilder<TOptions>, OptionsBuilder<TOptions>>? builder = null)
             where TOptions : class
         {

@@ -2,28 +2,30 @@
 
 public interface IStore
 {
-    public StoreKey Key { get; }
-    public long Version { get; }
-    public DateTime UpdatedAt { get; }
-    public string? Reason { get; }
-    public string GetState();
-    public SerializableSnapshot GetSnapshot();
-    public ValueTask SetState(string serializedState, string reason, CancellationToken ct = default);
+    public object? this[string key] { get; }
+
+    public string Type { get; }
+    public IEnumerable<string> GetKeys();
+    public ValueTask<bool> CreateStateAsync(string key);
+    public string? GetState(string name = "");
+    public SerializableSnapshot? GetSnapshot(string name = "");
+    public ValueTask SetState(string serializedState, string name = "", string? reason = null, CancellationToken ct = default);
     public ValueTask SetSnapshot(SerializableSnapshot snapshot, bool silent = false, CancellationToken ct = default);
 
-    public IDisposable Subscribe(Action listener);
-
-
-
+    public IDisposable Subscribe(Action<StoreKey> listener);
 }
+
 public interface IStore<TState> : IStore
 {
+    public new TState? this[string name] { get; }
+
     public Snapshot<TState> Snapshot { get; }
     public TState State => Snapshot.State;
+    public new Snapshot<TState>? GetSnapshot(string name = "");
     public ValueTask SetSnapshot(Snapshot<TState> snapshot, bool silent = false, CancellationToken ct = default);
 
-    public ValueTask UpdateAsync(Func<TState, TState> reducer, string? reason = null, CancellationToken ct = default);
+    public ValueTask UpdateAsync(Func<TState, TState> reducer, string key = "", string? reason = null, CancellationToken ct = default);
 
-    public IDisposable Subscribe(Action<TState> listener, bool fireImmediately = true);
+    public IDisposable Subscribe(Action<StoreKey, TState> listener);
 
 }

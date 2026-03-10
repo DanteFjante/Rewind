@@ -16,36 +16,18 @@ namespace Rewind.Extensions.Store
             SyncService = syncService;
         }
 
-        public async ValueTask<Snapshot<TState>?> GetState<TState>(StoreKey key)
+        public async ValueTask<Snapshot<TState>?> GetState<TState>(string name = "")
         {
             Snapshot<TState> snapshot = null;
             if (Persistence != null)
             {
-                PersistenceKey pk = new PersistenceKey(key);
+                PersistenceKey pk = new PersistenceKey(HelperMethods.StoreType<TState>(), name);
                 var state = await Persistence.GetStateAsync(pk);
                 if (state != null)
                 {
                     snapshot = state.ToSnapshot().ToSnapshot<TState>();
                 }
             }
-
-
-            return snapshot;
-        }
-
-        public async ValueTask<Snapshot<TState>?> GetState<TState>()
-        {
-            Snapshot<TState> snapshot = null;
-            if (Persistence != null)
-            {
-                PersistenceKey pk = new PersistenceKey(HelperMethods.StoreType<TState>());
-                var state = await Persistence.GetStateAsync(pk);
-                if (state != null)
-                {
-                    snapshot = state.ToSnapshot().ToSnapshot<TState>();
-                }
-            }
-
 
             return snapshot;
         }
@@ -67,12 +49,12 @@ namespace Rewind.Extensions.Store
             return snapshot;
         }
 
-        public async ValueTask<SerializableSnapshot?> GetState(string storeType)
+        public async ValueTask<SerializableSnapshot?> GetState(string storeType, string stateName = "")
         {
             SerializableSnapshot snapshot = null;
             if (Persistence != null)
             {
-                PersistenceKey pk = new PersistenceKey(storeType);
+                PersistenceKey pk = new PersistenceKey(storeType, stateName);
                 var state = await Persistence.GetStateAsync(pk);
                 if (state != null)
                 {

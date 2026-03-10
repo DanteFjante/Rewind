@@ -43,7 +43,7 @@ namespace Rewind.Extensions.Store
         {
             var stores = sp.GetServices<IInitializableStore>();
 
-            var store = stores.FirstOrDefault(x => x.Key.Type == storeType);
+            var store = stores.FirstOrDefault(x => x.Type == storeType);
 
             if (InitializeStore && store != null)
                 await store.InitializeAsync();
@@ -56,14 +56,16 @@ namespace Rewind.Extensions.Store
             return ValueTask.FromResult(sp.GetService<IStore<TState>>() != null);
         }
 
-
-
-        public ValueTask<long?> Version<TState>()
+        public ValueTask<long?> Version<TState>(string key = "")
         {
             IStore<TState>? store = sp.GetService<IStore<TState>>();
 
+            return ValueTask.FromResult(store?.GetSnapshot(key)?.Version ?? null);
+        }
 
-            return ValueTask.FromResult(store?.Version ?? null);
+        public ValueTask<IEnumerable<string>> GetStoreTypes()
+        {
+            return new(sp.GetServices<IStore>().Select(x => x.Type));
         }
     }
 }

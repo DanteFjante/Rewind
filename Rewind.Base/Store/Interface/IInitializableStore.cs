@@ -5,9 +5,10 @@ public interface IInitializableStore : IStore, IDisposable
     public bool IsInitialized { get; }
     public bool IsDisposed { get; }
 
-    public IDisposable SubscribeOnInitialized(Action<IInitializableStore> onInitialized);
+    public IDisposable SubscribeOnInitialized(Action<StoreKey, IInitializableStore> onInitialized);
     public IDisposable SubscribeOnDisposed(Action<StoreKey> onDisposed);
 }
 
-public interface IInitializableStore<TState> : IInitializableStore, IStore<TState> { }
+public interface IInitializableStore<TState> : IInitializableStore, IStore<TState>
+{ }
 
