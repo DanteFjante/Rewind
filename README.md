@@ -1,192 +1,376 @@
 # Rewind
 
-A Redux-like state/store library for .NET with a bias toward **low boilerplate** and **fast setup**. Rewind is built around:
+## What Is Rewind
+Rewind is a Redux-inspired state/store toolkit for .NET. It is built around:
 
-- immutable state objects
-- DI-first setup
-- optional middleware (logging, persistence, custom)
-- optional store initialization strategies (eager or per-store)
+- immutable state records
+- dispatching commands through reducers and effects
+- middleware hooks around initialization and updates
+- DI-first composition with fluent builders
 
-> Status: early-stage. No releases/packages are published from this repo yet.
+This repo currently targets .NET 10 and is split into focused projects.
 
----
+## Packages and Responsibilities
+| Package | Responsibility | Main APIs |
+| --- | --- | --- |
+| `Rewind.Base` | Core primitives and runtime engine (stores, snapshots, middleware, dispatcher contracts) | `IStore<TState>`, `IInitializableStore<TState>`, `StoreFactory`, `BaseMiddleware<TState>`, `IDispatcher`, `ICommand` |
+| `Rewind` | DI registration and fluent builders | `AddDispatcher`, `IDispatcherBuilder`, `IStoreBuilder<TState>`, nested builders |
+| `Rewind.Blazor` | Blazor integration and browser-focused extensions | `RewindInitializer`, `StoreComponent`, `AddLocalPersistence`, `AddSync` |
+| `Rewind.Extensions` (optional) | Optional middleware and services (logging, persistence, sync plumbing) | `AddLogging`, persistence/sync middleware types |
 
-## Why Rewind
+## Requirements and Installation
+- Target framework: `net10.0`
+- No NuGet packages are published from this repo yet.
+- Use project references.
 
-Rewind exists for the “I want predictable state + middleware + DI, but I don’t want to wire 40 abstractions” use case.
+Example:
 
-Design goals:
+```powershell
+dotnet add <your-app>.csproj reference Rewind.Base/Rewind.Base.csproj
+dotnet add <your-app>.csproj reference Rewind/Rewind.csproj
+# Optional:
+dotnet add <your-app>.csproj reference Rewind.Extensions/Rewind.Extensions.csproj
+dotnet add <your-app>.csproj reference Rewind.Blazor/Rewind.Blazor.csproj
+```
 
-- Minimal ceremony to register a store
-- Middleware pipeline as the extension point (logging/persistence/custom)
-- Store-specific configuration via `IOptions*` patterns
-
-Non-goals (at least currently):
-
-- Being a full Redux clone with reducers/actions semantics identical to JavaScript Redux
-- Being opinionated about UI binding (Blazor components support is planned, not shipped)
-
----
-
-## Installation
-
-### Reference the project
-
-Since there are no NuGet packages published, add a project reference to `Rewind.csproj` in your solution.
-
-
-
----
-
-## Quickstart
-
-### 1) Create an immutable state
-
-Example `CounterState`:
-
+## Quickstart (End-to-End)
 ```csharp
-public record class CounterState(int Count)
+using Microsoft.Extensions.DependencyInjection;
+using Rewind.Base.Dispatcher.Interface;
+using Rewind.Commands;
+using Rewind.Store;
+
+public sealed record CounterState(int Count);
+
+public sealed record IncrementCounter(int Amount, string CommandName = "") : ICommand
 {
-    public CounterState Increment() => this with { Count = Count + 1 };
+    public Guid CommandId { get; } = Guid.CreateVersion7();
+    public string? Reason => $"Increment by {Amount}";
 }
+
+var services = new ServiceCollection();
+
+services.AddDispatcher(d => d
+    .RegisterStore(new CounterState(0))
+    .RegisterReducer<CounterState, IncrementCounter>(
+        cmd => state => state with { Count = state.Count + cmd.Amount }));
+
+await using var provider = services.BuildServiceProvider();
+
+var store = provider.GetRequiredService<IInitializableStore<CounterState>>();
+await store.InitializeAsync(); // Required before update/dispatch.
+
+var dispatcher = provider.GetRequiredService<IDispatcher>();
+await dispatcher.DispatchAsync(new IncrementCounter(1));
+
+Console.WriteLine(store.State.Count); // 1
 ```
 
-### 2) Register the store in DI
+Alternative initialization flow (manager-based):
 
 ```csharp
-builder.Services.AddStore(new CounterState(0));
+var storeManager = provider.GetRequiredService<IStoreManager>();
+storeManager.EnableStoreInitialization();
+var storeFromManager = await storeManager.GetStore<CounterState>();
 ```
 
-### 3) Initialize stores
-
-You have two supported initialization styles:
-
-**Initialize all stores at once**
+## DispatcherBuilder Guide
+`AddDispatcher` is the main entrypoint in `Rewind`:
 
 ```csharp
-// Recommended in Blazor in App.razor so LocalStorage has time to load.
-storeInitializer.InitializeStores();
+services.AddDispatcher(d => d
+    .RegisterStore(() => new CounterState(0))
+    .RegisterReducer<CounterState, IncrementCounter>(
+        cmd => state => state with { Count = state.Count + cmd.Amount }));
 ```
 
-**Initialize a store on demand**
+### Configure managers
+```csharp
+using Rewind.Base.Store.Implementation;
+
+services.AddDispatcher(d => d
+    .SetStoreManager(_ => new BaseStoreManager())
+    .SetStateManager(_ => new BaseStateManager())
+    .RegisterStore(new CounterState(0)));
+```
+
+### Register effects
+```csharp
+using Rewind.Effects;
+
+public sealed class CounterAuditEffect : IEffect<IncrementCounter>
+{
+    public Type CommandType => typeof(IncrementCounter);
+
+    public ValueTask HandleAsync(IncrementCounter command, CancellationToken ct = default)
+    {
+        Console.WriteLine($"Handled: {command.Reason}");
+        return ValueTask.CompletedTask;
+    }
+}
+
+services.AddDispatcher(d => d
+    .RegisterStore(new CounterState(0))
+    .RegisterEffect<CounterAuditEffect, IncrementCounter>());
+```
+
+Factory overload:
 
 ```csharp
-await initializableStore.InitializeAsync();
+services.AddDispatcher(d => d
+    .RegisterStore(new CounterState(0))
+    .RegisterEffect<CounterAuditEffect, IncrementCounter>(sp => new CounterAuditEffect()));
 ```
 
----
-
-## Middleware
-
-You can attach middleware during `AddStore` registration.
-
-### Built-in extensions
+### Named state creation with built-in commands
+`RegisterStore<TState>(...)` also wires built-in `CreateState<TState>` and `UpdateState<TState>` handling.
 
 ```csharp
-builder.Services.AddStore(new CounterState(0), store =>
-    store.AddLogging()
-         .AddPersistence());
+await dispatcher.DispatchAsync(new CreateState<CounterState>("session-1", "session-1"));
+
+await dispatcher.DispatchAsync(new UpdateState<CounterState>
+{
+    StateName = "session-1",
+    CommandName = "session-1",
+    Reducer = s => s with { Count = s.Count + 10 }
+});
 ```
 
-### Add your own middleware
+## StoreBuilder and Nested Builders Guide
+`RegisterStore` accepts a store builder callback:
 
 ```csharp
-builder.Services.AddStore(new CounterState(0), store =>
-    store.AddMiddleware<LoggingMiddleware<CounterState>>());
+using Microsoft.Extensions.DependencyInjection;
+using Rewind.Middleware;
+
+public sealed class CounterOptions
+{
+    public int Step { get; set; } = 1;
+}
+
+public interface ICounterClock
+{
+    DateTime UtcNow { get; }
+}
+
+public sealed class SystemCounterClock : ICounterClock
+{
+    public DateTime UtcNow => DateTime.UtcNow;
+}
+
+public sealed class GuardMiddleware : BaseMiddleware<CounterState>
+{
+    protected override ValueTask BeforeUpdate(
+        UpdateMiddlewareContext<CounterState> context,
+        UpdateNextAsync next,
+        CancellationToken ct)
+    {
+        var projected = context.Reducer(context.CurrentState);
+        if (projected.Count < 0)
+            context.Block("Counter cannot go below zero.");
+
+        return ValueTask.CompletedTask;
+    }
+}
+
+services.AddDispatcher(d => d.RegisterStore(
+    () => new CounterState(0),
+    store => store
+        .AddMiddleware<GuardMiddleware>(mw => mw
+            .UseDefaultSetup()
+            .SetLifeTime(ServiceLifetime.Scoped))
+        .AddService<ICounterClock>(svc => svc
+            .SetImplementationType<SystemCounterClock>()
+            .SetLifetime(ServiceLifetime.Singleton))
+        .AddService<ICounterClock>(svc => svc
+            .SetServiceKey("utc")
+            .SetFactory(sp => new SystemCounterClock()))
+        .AddOptions<CounterOptions>(opt => opt
+            .SetStoreName("CounterStore")
+            .ReadFromSettings("Rewind:Counter")
+            .Configure(o => o.Step = 2))
+        .AddStoreDecorator((sp, createdStore) =>
+        {
+            // See caveats section for current behavior.
+        })));
 ```
 
-Rewind treats logging and persistence as middleware, and the same mechanism is intended for user-defined middleware too.
-
----
-
-## Store-scoped services and options
-
-You can register services and options “inside” the store builder. If you don’t use factory methods, registrations flow through normal DI (typically scoped).
-
-### Services
-
+### `IMiddlewareBuilder<TState, TMiddleware>`
 ```csharp
-builder.Services.AddStore(new CounterState(0), store =>
-    store.AddMiddleware<LocalStorageMiddleware<CounterState>>()
-         .AddService<ILocalStorage, LocalStorage>());
+store.AddMiddleware<GuardMiddleware>(mw => mw
+    .UseDefaultSetup()
+    .SetLifeTime(ServiceLifetime.Singleton));
+
+store.AddMiddleware<GuardMiddleware>(mw => mw
+    .SetFactory(sp => new GuardMiddleware()));
 ```
 
-### Options
-
+### `IServiceBuilder<TState, TService>`
 ```csharp
-builder.Services.AddStore(new CounterState(0), store =>
-    store.AddOptions<LocalStorageSettings>());
+store.AddService<ICounterClock>(svc => svc
+    .SetImplementationType<SystemCounterClock>()
+    .SetLifetime(ServiceLifetime.Singleton));
+
+store.AddService<ICounterClock>(svc => svc
+    .SetFactory(
+        sc => { /* optional custom registrations */ },
+        sp => new SystemCounterClock()));
 ```
 
-You can consume these with `IOptionsSnapshot<T>` or `IOptionsMonitor<T>` as usual.
+### `IOptionsBuilder<TState, TOptions>`
+```csharp
+store.AddOptions<CounterOptions>(opt => opt
+    .SetStoreName("CounterStore")
+    .ReadFromSettings("Rewind:Counter")
+    .Configure(o => o.Step = 5));
 
----
+store.AddOptions<CounterOptions>(opt => opt
+    .Setup(sc =>
+    {
+        sc.AddOptions<CounterOptions>("CounterStore")
+          .Configure(o => o.Step = 10);
+    }));
+```
 
-## LocalStorage configuration
-
-LocalStorage is configured via an options section:
-
-- The section name is: `Rewind.LocalStorage.LocalStorageSettings`
-- The per-store key is the **full name of the state type**
-- You can define a “generic” fallback object, but for LocalStorage this may break behavior (per the current README)
-
-Example `appsettings.json`:
+Example `appsettings.json` for `ReadFromSettings("Rewind:Counter")`:
 
 ```json
 {
-  "Rewind.LocalStorage.LocalStorageSettings": {
-    "Your.NameSpace.Here.CounterState": {
-      "StorageKey": "Counter2"
+  "Rewind": {
+    "Counter": {
+      "Step": 1,
+      "Your.Namespace.CounterState": {
+        "Step": 5
+      }
     }
   }
 }
 ```
 
----
-
-## Factory-based registration (advanced)
-
-If you want middleware/services/options creation without relying entirely on Microsoft DI conventions, the store builder supports factory methods. This also enables retrieving store-scoped registrations through a store factory.
+## Using Rewind.Base Directly
+You can use `Rewind.Base` without DI/builders.
 
 ```csharp
-builder.Services.AddStore(new CounterState(0), store => store
-    .AddService<ILocalStorage, LocalStorage>()
-    .AddOptions<LocalStorageSettings>()
-    .AddMiddleware<LocalStorageMiddleware<CounterState>>(
-        serviceCollection =>
-        {
-            // Optional setup without needing to depend on Microsoft DI patterns.
-        },
-        (serviceProvider, storeFactory) =>
-        {
-            // Construct middleware using store-scoped services/options
-            return new LocalStorageMiddleware<CounterState>(
-                storeFactory.GetService<ILocalStorage>(),
-                storeFactory.GetOptionsMonitor<LocalStorageSettings>());
-        }));
+using Rewind.Middleware;
+using Rewind.Store;
+
+var store = StoreFactory.Create(
+    () => new CounterState(0),
+    new List<Func<BaseMiddleware<CounterState>>>
+    {
+        () => new GuardMiddleware()
+    });
+
+await store.InitializeAsync();
+await store.UpdateAsync(s => s with { Count = s.Count + 1 }, reason: "Manual increment");
+
+Snapshot<CounterState>? snapshot = store.GetSnapshot();
+SerializableSnapshot serializable = snapshot!.ToSerializableSnapshot();
+StoreKey key = serializable.Key;
+
+Console.WriteLine($"{key.Type}:{key.Name} v{serializable.Version}");
 ```
 
----
+Middleware context example:
 
-## Roadmap
+```csharp
+public sealed class GuardMiddleware : BaseMiddleware<CounterState>
+{
+    protected override ValueTask BeforeInitializeStore(
+        InitializeMiddlewareContext<CounterState> context,
+        InitNextAsync next,
+        CancellationToken ct)
+    {
+        if (context.State.Count < 0)
+            context.State = context.State with { Count = 0 };
 
-Planned features mentioned in the repo:
+        return ValueTask.CompletedTask;
+    }
 
-- Blazor component support
-- Middleware dependency handling (middleware depending on other middleware)
-- A `CollectionStore` to store multiple instances of the same state type
-- Support for non-.NET projects (exploratory)
-- Move LocalStorage and Logging middleware/services to separate libraries
-- “Rewind” capabilities (undo/redo style)
+    protected override ValueTask BeforeUpdate(
+        UpdateMiddlewareContext<CounterState> context,
+        UpdateNextAsync next,
+        CancellationToken ct)
+    {
+        var projected = context.Reducer(context.CurrentState);
+        if (projected.Count < 0)
+            context.Block("Counter cannot go below zero.");
 
----
+        return ValueTask.CompletedTask;
+    }
+}
+```
 
-## Contributing
+## Blazor Components
+### Root-level initialization with `RewindInitializer`
+`RewindInitializer` initializes all injected `IInitializableStore` instances after first render.
 
-Issues and PRs welcome. If you add features, include:
+```razor
+@using Rewind.Blazor
 
-- a minimal repro/sample
-- tests (if/when test project is added)
-- README updates if you change the public surface
+<RewindInitializer />
+<Routes />
+```
 
----
+### Component-level initialization with `StoreComponent`
+`StoreComponent` discovers `[Inject]` properties that implement `IInitializableStore` and initializes them.
+
+```razor
+@page "/counter"
+@using Rewind.Store
+@inherits Rewind.Blazor.StoreComponent
+@inject IInitializableStore<CounterState> CounterStore
+
+@if (!StoresReady)
+{
+    <p>Initializing stores...</p>
+}
+else
+{
+    <p>Count: @CounterStore.State.Count</p>
+}
+
+@code {
+    protected override async Task OnInitializedAsync(bool storesInitialized)
+    {
+        if (storesInitialized)
+        {
+            await CounterStore.UpdateAsync(
+                s => s with { Count = s.Count + 1 },
+                reason: "Counter page opened");
+        }
+    }
+}
+```
+
+## Optional Extensions
+Optional extension methods live in `Rewind.Extensions`/`Rewind.Blazor`.
+
+```csharp
+using Rewind.Blazor.Persistence;
+using Rewind.Blazor.Sync;
+using Rewind.Logging;
+
+services.AddDispatcher(d => d.RegisterStore(
+    () => new CounterState(0),
+    store => store
+        .AddLogging()
+        .AddLocalPersistence()
+        .AddSync(sync =>
+        {
+            sync.ServerProtocol = "https";
+            sync.ServerAdress = "api.example.com";
+            sync.ServerPort = 443;
+        }, useAuth: true)));
+```
+
+- `AddLogging()` adds `LoggingMiddleware<TState>`.
+- `AddLocalPersistence()` wires persistence middleware for browser local storage.
+- `AddSync(...)` wires client sync middleware + SignalR connection services.
+
+## Current Caveats / Known Gaps
+- Stores must be initialized before `UpdateAsync`, `SetState`, `SetSnapshot`, and dispatch paths that update state.
+- `AddStoreDecorator(...)` is currently not exercised by the `AddDispatcher` registration pipeline.
+- `IMiddlewareBuilder.SetFactory(Action<IServiceCollection>, ...)` currently does not apply the provided setup action as expected.
+- `AddSync(..., useAuth)` currently does not branch behavior based on `useAuth`.
+- `PersistenceSettings` is currently a placeholder type with no defined properties.
