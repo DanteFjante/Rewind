@@ -16,14 +16,30 @@ namespace Rewind.Effects
             IDispatcher dispatcher
             )
         {
-            //Store = store;
+            Store = store;
             Dispatcher = dispatcher;
         }
 
 
         public async ValueTask HandleAsync(CreateState<TState> command, CancellationToken ct = default)
         {
-            await Dispatcher.AddReducer(new Reducer<TState, UpdateState<TState>>(command => command.Reducer, command.StateName), ct);
+
+
+            if (Store == null)
+                return;
+
+            if (Store[command.StateName] != null)
+            {
+                return;
+            }
+
+            await Store.CreateStateAsync(command.StateName, ct);
+            var updateReducer = new Reducer<TState, UpdateState<TState>>(
+                command => command.Reducer,
+                command.StateName,
+                n => n.Equals(command.CommandName));
+
+            await Dispatcher.AddReducer(updateReducer);
         }
     }
 }

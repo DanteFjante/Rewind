@@ -8,7 +8,7 @@ namespace Rewind.Base.Dispatcher.Interface
         public ValueTask DispatchAsync<TCommand>(TCommand command, CancellationToken ct = default)
             where TCommand : ICommand;
 
-        public ValueTask AddReducer<TState, TCommand>(IReducer<TState, TCommand> reducer, CancellationToken ct = default)
+        public ValueTask<bool> AddReducer<TState, TCommand>(IReducer<TState, TCommand> reducer, CancellationToken ct = default)
             where TCommand : ICommand;
     }
 }

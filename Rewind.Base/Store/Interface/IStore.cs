@@ -6,7 +6,7 @@ public interface IStore
 
     public string Type { get; }
     public IEnumerable<string> GetKeys();
-    public ValueTask<bool> CreateStateAsync(string key);
+    public ValueTask<bool> CreateStateAsync(string key, CancellationToken ct = default);
     public string? GetState(string name = "");
     public SerializableSnapshot? GetSnapshot(string name = "");
     public ValueTask SetState(string serializedState, string name = "", string? reason = null, CancellationToken ct = default);

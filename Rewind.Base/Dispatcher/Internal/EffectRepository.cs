@@ -5,13 +5,13 @@ using System.Data;
 
 namespace Rewind.Base.Dispatcher.Internal
 {
-    public class EffectProvider : IEffectProvider
+    public class EffectRepository : IEffectRepository
     {
         Dictionary<Type, List<IEffect>> effects { get; }
         List<EffectDescriptor> descriptors { get; }
         IServiceProvider sp;
 
-        public EffectProvider(IServiceProvider sp, IEnumerable<EffectDescriptor> effectDesciptors)
+        public EffectRepository(IServiceProvider sp, IEnumerable<EffectDescriptor> effectDesciptors)
         {
             descriptors = effectDesciptors?.ToList() ?? new();
             effects = new();

@@ -13,10 +13,13 @@ namespace Rewind.Base.Dispatcher.Internal
         public Type CommandType { get; } = typeof(TCommand);
         public IReducer Reducer => reducer;
 
-        public ReducerExecutor(IReducer<TState, TCommand> reducer, IStore<TState> store)
+        public Predicate<string>? CommandFilter { get; }
+
+        public ReducerExecutor(IReducer<TState, TCommand> reducer, IStore<TState> store, Predicate<string>? commandFilter = null)
         {
             this.reducer = reducer;
             this.store = store;
+            CommandFilter = commandFilter;
         }
 
         public ValueTask ExecuteAsync(TCommand command, CancellationToken ct = default)

@@ -6,6 +6,7 @@ namespace Rewind.Base.Dispatcher.Interface
     {
         Type CommandType { get; }
         Type StateType { get; }
+        Predicate<string>? CommandFilter { get; }
 
         ValueTask ExecuteAsync(ICommand command, CancellationToken ct = default);
     }

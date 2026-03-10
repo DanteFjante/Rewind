@@ -92,10 +92,10 @@ namespace Rewind.Store.Internal.Builders
             });
             return this;
         }
-        public IDispatcherBuilder RegisterReducer<TState, TCommand>(Reduction<TState, TCommand> reducer, string stateName = "")
+        public IDispatcherBuilder RegisterReducer<TState, TCommand>(Reduction<TState, TCommand> reducer, string stateName = "", Predicate<string>? commandFilter = null)
             where TCommand : ICommand
         {
-            var r = new Reducer<TState, TCommand>(reducer, stateName);
+            var r = new Reducer<TState, TCommand>(reducer, stateName, commandFilter);
 
             return RegisterReducer(r);
         }
@@ -106,7 +106,7 @@ namespace Rewind.Store.Internal.Builders
             ReducerRegistration registration = new() 
             { 
                 Reducer = reducer,
-                ExecutorFactory = sp => new ReducerExecutor<TState, TCommand>(reducer, sp.GetRequiredService<IStore<TState>>())
+                ExecutorFactory = sp => new ReducerExecutor<TState, TCommand>(reducer, sp.GetRequiredService<IStore<TState>>(), reducer.CommandFilter)
             };
 
             Reducers.Add(registration);
@@ -132,7 +132,7 @@ namespace Rewind.Store.Internal.Builders
                 StoreFactory = sb.Build
             };
 
-            RegisterReducer<TState, UpdateState<TState>>(command => command.Reducer, "");
+            RegisterReducer<TState, UpdateState<TState>>(command => command.Reducer, "", string.IsNullOrEmpty);
             RegisterEffect<CreateStateEffect<TState>, CreateState<TState>>();
             Stores.Add(sr);
 
@@ -161,7 +161,7 @@ namespace Rewind.Store.Internal.Builders
                 });
             }
 
-            sc.TryAddScoped<IEffectProvider>(sp => new EffectProvider(sp, effects));
+            sc.TryAddScoped<IEffectRepository>(sp => new EffectRepository(sp, effects));
 
             foreach (var store in Stores)
             {
@@ -173,7 +173,7 @@ namespace Rewind.Store.Internal.Builders
                     sp.GetRequiredService<IStoreProvider>(), 
                     sp.GetRequiredService<IReducerManager>(), 
                     Reducers.Select(x => x.ExecutorFactory(sp)), 
-                    sp.GetRequiredService<IEffectProvider>()
+                    sp.GetRequiredService<IEffectRepository>()
                     ));
 
             return sp => sp.GetRequiredService<IDispatcher>();

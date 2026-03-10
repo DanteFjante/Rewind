@@ -8,6 +8,8 @@ namespace Rewind.Base.Dispatcher.Interface
     {
         public StoreKey StoreKey { get; }
         public Type CommandType { get; }
+
+        public Predicate<string>? CommandFilter { get; }
     }
 
     public interface IReducer<TState, TCommand> : IReducer

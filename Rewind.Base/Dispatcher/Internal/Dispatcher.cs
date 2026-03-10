@@ -2,7 +2,6 @@
 using Rewind.Base.Dispatcher.Interface;
 using Rewind.Store;
 using Rewind.Store.Internal.Builders;
-using Rewind.Effects;
 namespace Rewind.Base.Dispatcher.Internal
 {
     public class Dispatcher : IDispatcher
@@ -10,10 +9,10 @@ namespace Rewind.Base.Dispatcher.Internal
         public IStoreProvider StoreProvider { get; }
         public IReducerManager ReducerManager { get; }
         public Dictionary<Type, List<IReducerExecutor>> Reducers { get; }
-        public IEffectProvider Effects { get; }
+        public IEffectRepository Effects { get; }
 
 
-        public Dispatcher(IStoreProvider storeProvider, IReducerManager reducerManager, IEnumerable<IReducerExecutor> reducerExecutors, IEffectProvider effects)
+        public Dispatcher(IStoreProvider storeProvider, IReducerManager reducerManager, IEnumerable<IReducerExecutor> reducerExecutors, IEffectRepository effects)
         {
             StoreProvider = storeProvider;
             ReducerManager = reducerManager;
@@ -34,28 +33,34 @@ namespace Rewind.Base.Dispatcher.Internal
             }
         }
 
-        public async ValueTask AddReducer<TState, TCommand>(IReducer<TState, TCommand> reducer, CancellationToken ct = default)
+        public async ValueTask<bool> AddReducer<TState, TCommand>(IReducer<TState, TCommand> reducer, CancellationToken ct = default)
             where TCommand : ICommand
         {
             var store = await StoreProvider.GetStore<TState>();
             
             if (store == null)
-                return;
+                return false;
 
             if (store[reducer.StoreKey.Name] == null)
             {
-                await store.CreateStateAsync(reducer.StoreKey.Name);
-                await AddReducer(new Reducer<TState, UpdateState<TState>>(command => command.Reducer, reducer.StoreKey.Name));
+                return false;
             }
+            AddReducer(reducer, store);
+            return true;
+        }
 
-            var executor = new ReducerExecutor<TState, TCommand>(reducer, store);
+
+        private void AddReducer<TState, TCommand>(IReducer<TState, TCommand> reducer, IStore<TState> store)
+            where TCommand : ICommand
+        {
+            var executor = new ReducerExecutor<TState, TCommand>(reducer, store, reducer.CommandFilter);
             if (Reducers.TryGetValue(reducer.CommandType, out var list))
             {
                 list.Add(executor);
             }
             else
             {
-                Reducers[reducer.CommandType] = [executor]; 
+                Reducers[reducer.CommandType] = [executor];
             }
 
             ReducerManager.AddReducer(reducer);
@@ -67,7 +72,8 @@ namespace Rewind.Base.Dispatcher.Internal
         {
             if (Reducers.TryGetValue(typeof(TCommand), out var reducers))
             {
-                foreach (var r in reducers)
+                var rs = reducers.Where(x => x.CommandFilter?.Invoke(command.CommandName) ?? true);
+                foreach (var r in rs)
                 {
                     await r.ExecuteAsync(command);
                 }

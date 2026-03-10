@@ -24,7 +24,7 @@ namespace Rewind.Base.Store.Interface
         public IDispatcherBuilder RegisterReducer<TState, TCommand>(IReducer<TState, TCommand> reducer)
             where TCommand : ICommand;
 
-        public IDispatcherBuilder RegisterReducer<TState, TCommand>(Reduction<TState, TCommand> reducer, string stateName = "")
+        public IDispatcherBuilder RegisterReducer<TState, TCommand>(Reduction<TState, TCommand> reducer, string stateName = "", Predicate<string>? commandFilder = null)
             where TCommand : ICommand;
 
         public IDispatcherBuilder RegisterStore<TState>(Func<TState> InitialState, Func<IStoreBuilder<TState>, IStoreBuilder<TState>>? builder = null)

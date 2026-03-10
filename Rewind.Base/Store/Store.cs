@@ -70,13 +70,13 @@ internal class Store<TState> : IInitializableStore<TState>, IStore<TState>
 
         return keys;
     }
-    public async ValueTask<bool> CreateStateAsync(string key)
+    public async ValueTask<bool> CreateStateAsync(string key, CancellationToken ct = default)
     {
         if(Add(_initialState(), key))
         {
             if (_isInitialized)
             {
-                await InitializeStateAsync(key);
+                await InitializeStateAsync(key, ct);
             }
             return true;
         }
