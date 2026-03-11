@@ -9,12 +9,12 @@ namespace Rewind.Commands
         public string StateName { get; init; }
         public string? Reason => $"Created State for Store of {HelperMethods.StoreType<TState>()} with name: {StateName}";
 
-        public string CommandName { get; set; } = "";
+        public string CommandChannel { get; set; } = "";
 
         public CreateState(string stateName, string? commandName = null)
         {
             StateName = stateName;
-            CommandName = commandName ?? stateName;
+            CommandChannel = commandName ?? stateName;
         }
     }
 }

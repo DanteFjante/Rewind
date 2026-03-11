@@ -11,6 +11,6 @@ namespace Rewind.Commands
 
         public string? Reason => $"Store of {HelperMethods.StoreType<TState>()} with name: {StateName} has been updated";
 
-        public string CommandName { get; set; } = "";
+        public string CommandChannel { get; set; } = "";
     }
 }

@@ -37,7 +37,7 @@ namespace Rewind.Effects
             var updateReducer = new Reducer<TState, UpdateState<TState>>(
                 command => command.Reducer,
                 command.StateName,
-                n => n.Equals(command.CommandName));
+                n => n.Equals(command.CommandChannel));
 
             await Dispatcher.AddReducer(updateReducer);
         }

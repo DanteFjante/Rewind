@@ -1,7 +1,6 @@
 ﻿using Rewind.Commands;
 using Rewind.Base.Dispatcher.Interface;
 using Rewind.Store;
-using Rewind.Store.Internal.Builders;
 namespace Rewind.Base.Dispatcher.Internal
 {
     public class Dispatcher : IDispatcher
@@ -10,6 +9,8 @@ namespace Rewind.Base.Dispatcher.Internal
         public IReducerManager ReducerManager { get; }
         public Dictionary<Type, List<IReducerExecutor>> Reducers { get; }
         public IEffectRepository Effects { get; }
+
+        private Dictionary<Type, List<Action<ICommand>>> Subscriptions { get; }
 
 
         public Dispatcher(IStoreProvider storeProvider, IReducerManager reducerManager, IEnumerable<IReducerExecutor> reducerExecutors, IEffectRepository effects)
@@ -31,6 +32,8 @@ namespace Rewind.Base.Dispatcher.Internal
                     Reducers.Add(executor.CommandType, [executor]);
                 }
             }
+
+            Subscriptions = new();
         }
 
         public async ValueTask<bool> AddReducer<TState, TCommand>(IReducer<TState, TCommand> reducer, CancellationToken ct = default)
@@ -72,7 +75,7 @@ namespace Rewind.Base.Dispatcher.Internal
         {
             if (Reducers.TryGetValue(typeof(TCommand), out var reducers))
             {
-                var rs = reducers.Where(x => x.CommandFilter?.Invoke(command.CommandName) ?? true);
+                var rs = reducers.Where(x => x.CommandFilter?.Invoke(command.CommandChannel) ?? true);
                 foreach (var r in rs)
                 {
                     await r.ExecuteAsync(command);
@@ -82,6 +85,50 @@ namespace Rewind.Base.Dispatcher.Internal
             foreach (var effect in Effects.GetEffects<TCommand>())
             {
                 await effect.HandleAsync(command);
+            }
+        }
+
+        public IDisposable SubscribeCommand<TCommand>(Action<TCommand> action)
+            where TCommand : ICommand
+        {
+            Action<ICommand> a = (x) => action((TCommand) x);
+            Subscription<TCommand> subscription = new Subscription<TCommand>(a, this);
+
+            if (Subscriptions.TryGetValue(typeof(TCommand), out var list))
+            {
+                list.Add(a);
+            }
+            else
+            {
+                Subscriptions[typeof(TCommand)] = [a];
+            }
+
+            return subscription;
+        }
+
+        public bool UnsubscribeCommand<TCommand>(Action<ICommand> action)
+        {
+            if (Subscriptions.TryGetValue(typeof(TCommand), out var list))
+            {
+                return list.Remove(action);
+            }
+            return false;
+        }
+
+        private class Subscription<TCommand> : IDisposable
+            where TCommand : ICommand
+        {
+            public Action<ICommand> action;
+            private Dispatcher dispatcher;
+            public Subscription(Action<ICommand> action, Dispatcher dispatcher)
+            {
+                this.action = action;
+                this.dispatcher = dispatcher;
+            }
+
+            public void Dispose()
+            {
+                dispatcher.UnsubscribeCommand<TCommand>(action);
             }
         }
     }
